@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DSA Lab</title>
+<meta name="description" content="Learn the patterns behind coding interviews, then prove it in Java. Pattern lessons with step-through visualizations, original problems with a real Java compiler in your browser, full solutions, and links to matching LeetCode problems.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="DSA Lab — learn the patterns, solve in Java">
+<meta property="og:description" content="Interview patterns taught with interactive visualizations, auto-graded Java problems that run in your browser, and full solutions with the reasoning behind them.">
+<meta property="og:url" content="https://anadi198.github.io/learn-dsa/">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#F1EFF5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#100E16" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235A3EA6'/%3E%3Cg fill='none' stroke='white' stroke-width='4.5' stroke-linecap='round'%3E%3Cpath d='M32 14v12M32 26l-12 12M32 26l12 12'/%3E%3C/g%3E%3Cg fill='white'%3E%3Ccircle cx='32' cy='14' r='6'/%3E%3Ccircle cx='20' cy='42' r='6'/%3E%3Ccircle cx='44' cy='42' r='6'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app" id="app" data-tab="read" data-view="home">
+  <header class="topbar">
+    <button class="btn quiet icon-btn" id="navToggle" aria-label="Show or hide the course outline" title="Show or hide the course outline">☰</button>
+    <a class="brand" href="#/" title="Home"><b>DSA<span>Lab</span></b><small>learn the patterns, solve in Java</small></a>
+    <div class="spacer"></div>
+    <button class="chip" id="reviewChip" title="Problems due for review" hidden></button>
+    <div class="chip progress-chip" id="progressChip" title="Problems solved"></div>
+    <button class="btn quiet icon-btn" id="themeBtn" title="Toggle light/dark" aria-label="Toggle light or dark theme">◐</button>
+    <button class="btn quiet icon-btn" id="menuBtn" title="More" aria-label="More options">⋯</button>
+  </header>
+
+  <nav class="nav" id="nav" aria-label="Course outline"></nav>
+
+  <div class="tabs" role="tablist">
+    <button id="tabRead" class="on" role="tab">Problem</button>
+    <button id="tabCode" role="tab">Code</button>
+  </div>
+
+  <main class="reader-pane" id="readerPane"><article class="reader" id="reader"></article></main>
+
+  <div class="split" id="split" role="separator" aria-orientation="vertical" aria-label="Resize code panel"></div>
+
+  <section class="code" id="code" aria-label="Code editor">
+    <div class="code-head">
+      <span class="file" id="fileName">Solution.java</span>
+      <span class="spacer"></span>
+      <div class="engine-sw" id="engineSw" role="group" aria-label="Where your Java runs">
+        <button data-e="browser" title="A real javac compiled to WebAssembly, running in this tab. Works anywhere, including phones.">In-browser</button>
+        <button data-e="local" title="The JDK installed on this computer, through the DSA Lab runner (runner/server.mjs).">Your JDK</button>
+      </div>
+      <button class="tbtn" id="resetCode" title="Replace your code with the starter code">Reset</button>
+    </div>
+    <div class="editor-wrap" id="editorWrap"></div>
+    <div class="vsplit" id="vsplit" role="separator" aria-orientation="horizontal" aria-label="Resize results"></div>
+    <div class="results" id="results">
+      <div class="res-tabs" role="tablist">
+        <button data-rt="tests" class="on">Results</button>
+        <button data-rt="custom">Custom input</button>
+        <span class="spacer"></span>
+        <span class="engine-state" id="engineState"></span>
+      </div>
+      <div class="res-body" id="resBody"></div>
+    </div>
+    <div class="code-foot">
+      <button class="tbtn" id="runBtn" title="Run the examples (Ctrl/⌘ + Enter)">Run <span class="k">⌘↵</span></button>
+      <button class="tbtn go" id="submitBtn" title="Run every test, including the large hidden ones (Ctrl/⌘ + Shift + Enter)">Submit <span class="k">⇧⌘↵</span></button>
+      <span class="hint" id="codeHint">Java 21 syntax · <code>java.util.*</code> is imported for you</span>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
+<script src="harness.js"></script>
+<script src="content/_core.js"></script>
+<script src="content/meta.js"></script>
+<script src="content/00-start.js"></script>
+<script src="content/01-java.js"></script>
+<script src="content/02-hashing.js"></script>
+<script src="content/03-two-pointers.js"></script>
+<script src="content/04-sliding-window.js"></script>
+<script src="content/05-stack.js"></script>
+<script src="content/06-binary-search.js"></script>
+<script src="content/07-linked-list.js"></script>
+<script src="content/08-trees.js"></script>
+<script src="content/09-heaps.js"></script>
+<script src="content/10-backtracking.js"></script>
+<script src="content/11-graphs.js"></script>
+<script src="content/12-weighted-graphs.js"></script>
+<script src="content/13-dp-1d.js"></script>
+<script src="content/14-dp-2d.js"></script>
+<script src="content/15-greedy-intervals.js"></script>
+<script src="content/16-tries.js"></script>
+<script src="content/17-bits-math.js"></script>
+<script src="content/cheatsheets.js"></script>
+<script src="content/drill.js"></script>
+<script src="expected.js"></script>
+<script src="viz.js"></script>
+<script src="tracers.js"></script>
+<script src="tracers-java.js"></script>
+<script src="tracers-seq.js"></script>
+<script src="tracers-trees.js"></script>
+<script src="tracers-search.js"></script>
+<script src="tracers-dp.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+<script src="extras.js"></script>
+</body>
+</html>
