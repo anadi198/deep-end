@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LLD Lab</title>
+<meta name="description" content="Low-level design and design patterns for Java interviews, in short steps. Lessons that lead with the one thing to remember, exercises graded by a real Java compiler in your browser, Claude reviews of your designs, and a 5-minute daily review.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="LLD Lab: low-level design, one pattern at a time">
+<meta property="og:description" content="Design patterns and LLD case studies in Java: short lessons, auto-graded exercises in your browser, Claude design reviews, spaced review.">
+<meta property="og:url" content="https://anadi198.github.io/learn-lld/">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#EEF3F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0C1312" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230F766E'/%3E%3Cg fill='none' stroke='white' stroke-width='4.5'%3E%3Crect x='12' y='12' width='18' height='14' rx='3'/%3E%3Crect x='34' y='38' width='18' height='14' rx='3'/%3E%3Cpath d='M21 26v19h13' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="lld.css">
+</head>
+<body>
+<div class="app" id="app" data-tab="read" data-view="home">
+  <header class="topbar">
+    <button class="btn quiet icon-btn" id="navToggle" aria-label="Show or hide the course outline" title="Show or hide the course outline">☰</button>
+    <a class="brand" href="#/" title="Home"><b>LLD<span>Lab</span></b><small>low-level design, one pattern at a time</small></a>
+    <div class="spacer"></div>
+    <button class="chip due" id="todayChip" title="Cards due in today's 5-minute review" hidden></button>
+    <button class="chip sync" id="syncChip" hidden></button>
+    <div class="chip progress-chip" id="progressChip" title="Steps done"></div>
+    <button class="btn quiet icon-btn" id="focusBtn" aria-label="Focus mode">◎</button>
+    <button class="btn quiet icon-btn" id="themeBtn" title="Toggle light/dark" aria-label="Toggle light or dark theme">◐</button>
+    <button class="btn quiet icon-btn" id="menuBtn" title="More" aria-label="More options">⋯</button>
+  </header>
+
+  <nav class="nav" id="nav" aria-label="Course outline"></nav>
+
+  <div class="tabs" role="tablist">
+    <button id="tabRead" class="on" role="tab">Task</button>
+    <button id="tabCode" role="tab">Code</button>
+  </div>
+
+  <main class="reader-pane" id="readerPane"><article class="reader" id="reader"></article></main>
+
+  <div class="split" id="split" role="separator" aria-orientation="vertical" aria-label="Resize code panel"></div>
+
+  <section class="code" id="code" aria-label="Code editor">
+    <div class="code-head">
+      <div class="file-tabs" id="fileTabs"></div>
+      <span class="spacer"></span>
+      <div class="engine-sw" id="engineSw" role="group" aria-label="Where your Java runs">
+        <button data-e="browser" title="A real javac compiled to WebAssembly, running in this tab. Works anywhere, including phones. No threads.">In-browser</button>
+        <button data-e="local" title="The JDK installed on this computer, through the LLD Lab runner (runner/server.mjs). Needed for threads and Claude reviews.">Your JDK</button>
+      </div>
+      <button class="tbtn" id="resetCode" title="Replace your code with the starter code">Reset</button>
+    </div>
+    <div class="editor-wrap" id="editorWrap"></div>
+    <div class="vsplit" id="vsplit" role="separator" aria-orientation="horizontal" aria-label="Resize results"></div>
+    <div class="results" id="results">
+      <div class="res-tabs" role="tablist">
+        <button data-rt="tests" class="on">Results</button>
+        <button data-rt="review">Claude review</button>
+        <span class="spacer"></span>
+        <span class="engine-state" id="engineState"></span>
+      </div>
+      <div class="res-body" id="resBody"></div>
+    </div>
+    <div class="code-foot">
+      <button class="tbtn" id="runBtn" title="Run the visible tests (Ctrl/⌘ + Enter)">Run <span class="k">⌘↵</span></button>
+      <button class="tbtn go" id="submitBtn" title="Run every test (Ctrl/⌘ + Shift + Enter)">Submit <span class="k">⇧⌘↵</span></button>
+      <button class="tbtn review" id="reviewBtn" title="Ask Claude to review your design">Review with Claude</button>
+      <span class="hint" id="codeHint"></span>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
+<script src="harness.js"></script>
+<script src="content/_core.js"></script>
+<script src="content/meta.js"></script>
+<!-- @modules -->
+<script src="content/00-start.js"></script>
+<script src="content/01-oo.js"></script>
+<script src="content/02-solid.js"></script>
+<script src="content/03-model.js"></script>
+<script src="content/04-swap.js"></script>
+<script src="content/05-build.js"></script>
+<script src="content/06-wrap.js"></script>
+<script src="content/07-pass.js"></script>
+<script src="content/08-rest.js"></script>
+<script src="content/09-concurrency.js"></script>
+<script src="content/10-cases-core.js"></script>
+<script src="content/cheatsheets.js"></script>
+<script src="content/drill.js"></script>
+<!-- /@modules -->
+<script src="viz.js"></script>
+<script src="engine.js"></script>
+<script src="sync-config.js"></script>
+<script src="sync.js"></script>
+<script src="app.js"></script>
+<script src="extras.js"></script>
+</body>
+</html>
