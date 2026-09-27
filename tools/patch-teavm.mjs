@@ -5,13 +5,15 @@
 // srcDir holds the unmodified files from https://teavm.org/playground/ (default: vendor/teavm/orig,
 // falling back to vendor/teavm). The patched archives are written to outDir (default: vendor/teavm).
 //
-// Two fixes:
+// Three fixes:
 //  1. compile-classlib-teavm.bin (the stubs javac compiles against) still names nested classes by
 //     their TeaVM-internal names in InnerClasses attributes, e.g. `org/teavm/classlib/java/util/TMap$Entry`
 //     instead of `java/util/Map$Entry`. javac then can't resolve `Map.Entry`. We rename those strings.
 //  2. A few small static methods that LeetCode-style Java uses all the time are missing from both
 //     the stubs and TeaVM's runtime classes: Integer.sum (for `map.merge(k, 1, Integer::sum)`),
 //     Long.sum/max/min and Double.sum/max/min. We add them to both archives.
+//  3. Overloads that became identical after fix 1 (StringBuilder.append(Object) twice), which makes
+//     javac call every such call ambiguous. See ClassFile.hideDuplicateMethods.
 import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -115,6 +117,28 @@ class ClassFile {
     }
     return changed;
   }
+  // After internal names are mapped to java/*, two TeaVM overloads (TObject vs Object) can end up
+  // with the same name and descriptor; javac then calls every use of them ambiguous. Mark the later
+  // copies synthetic bridges, which javac ignores. Returns how many were marked.
+  hideDuplicateMethods() {
+    const seen = new Set();
+    let p = this.methodsAt + 2, marked = 0;
+    for (let i = 0; i < this.methodCount; i++) {
+      const key = this.cp[this.buf.readUInt16BE(p + 2)].s + this.cp[this.buf.readUInt16BE(p + 4)].s;
+      const flags = this.buf.readUInt16BE(p);
+      if (!(flags & 0x0040)) {
+        if (seen.has(key)) {
+          this.buf = Buffer.from(this.buf);
+          this.buf.writeUInt16BE(flags | 0x1040, p);
+          marked++;
+        } else seen.add(key);
+      }
+      p += 6;
+      const ac = this.buf.readUInt16BE(p); p += 2;
+      for (let j = 0; j < ac; j++) { const l = this.buf.readUInt32BE(p + 2); p += 6 + l; }
+    }
+    return marked;
+  }
   hasMethod(name, desc) {
     let p = this.methodsAt + 2;
     for (let i = 0; i < this.methodCount; i++) {
@@ -176,7 +200,7 @@ function callStatic(cf, loads, name, desc, ret) {
 
 // 1+2a. compile stubs
 const compile = readArchive(path.join(srcDir, 'compile-classlib-teavm.bin'));
-let renamed = 0;
+let renamed = 0, duplicatesHidden = 0;
 const toJava = (s) => s.replace(/org\/teavm\/classlib\/((?:[a-z0-9_]+\/)*)T([A-Za-z0-9_]+)((?:\$[A-Za-z0-9_]+)*)/g, (m, pkg, name, nested) => {
   const target = pkg + name + nested;
   return compile.has(target + '.class') ? target : m;
@@ -189,10 +213,11 @@ for (const [name, data] of compile) {
   for (const [, m, d] of adds) cf.addMethod(ACC_PUBLIC_STATIC, m, d, null);
   const stubs = STUB_ONLY.filter(([c]) => c + '.class' === name);
   for (const [, flags, m, d] of stubs) cf.addMethod(flags, m, d, null);
-  if (n || adds.length || stubs.length) { compile.set(name, cf.toBuffer()); renamed += n; }
+  const hidden = cf.hideDuplicateMethods();
+  if (n || adds.length || stubs.length || hidden) { compile.set(name, cf.toBuffer()); renamed += n; duplicatesHidden += hidden; }
 }
 writeArchive(path.join(outDir, 'compile-classlib-teavm.bin'), compile);
-console.log(`compile classlib: renamed ${renamed} internal class names, added ${ADDITIONS.length + STUB_ONLY.length} method stubs`);
+console.log(`compile classlib: renamed ${renamed} internal class names, hid ${duplicatesHidden} duplicate overloads, added ${ADDITIONS.length + STUB_ONLY.length} method stubs`);
 
 // 2b. runtime classes
 const runtime = readArchive(path.join(srcDir, 'runtime-classlib-teavm.bin'));
