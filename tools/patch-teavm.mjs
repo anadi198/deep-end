@@ -5,14 +5,15 @@
 // srcDir holds the unmodified files from https://teavm.org/playground/ (default: vendor/teavm/orig,
 // falling back to vendor/teavm). The patched archives are written to outDir (default: vendor/teavm).
 //
-// Three fixes:
+// Four fixes:
 //  1. compile-classlib-teavm.bin (the stubs javac compiles against) still names nested classes by
 //     their TeaVM-internal names in InnerClasses attributes, e.g. `org/teavm/classlib/java/util/TMap$Entry`
 //     instead of `java/util/Map$Entry`. javac then can't resolve `Map.Entry`. We rename those strings.
 //  2. A few small static methods that LeetCode-style Java uses all the time are missing from both
 //     the stubs and TeaVM's runtime classes: Integer.sum (for `map.merge(k, 1, Integer::sum)`),
 //     Long.sum/max/min and Double.sum/max/min. We add them to both archives.
-//  3. Overloads that became identical after fix 1 (StringBuilder.append(Object) twice), which makes
+//  3. Stub methods still carrying TeaVM's internal names (getMessage0 ...), see STUB_RENAMES.
+//  4. Overloads that became identical after fix 1 (StringBuilder.append(Object) twice), which makes
 //     javac call every such call ambiguous. See ClassFile.hideDuplicateMethods.
 import zlib from 'node:zlib';
 import fs from 'node:fs';
@@ -139,6 +140,22 @@ class ClassFile {
     }
     return marked;
   }
+  // Points an existing method at a new name (a fresh Utf8 constant); returns false if absent.
+  renameMethod(name, desc, newName) {
+    let p = this.methodsAt + 2;
+    for (let i = 0; i < this.methodCount; i++) {
+      const nm = this.cp[this.buf.readUInt16BE(p + 2)].s, d = this.cp[this.buf.readUInt16BE(p + 4)].s;
+      if (nm === name && d === desc) {
+        this.buf = Buffer.from(this.buf);
+        this.buf.writeUInt16BE(this.utf8(newName), p + 2);
+        return true;
+      }
+      p += 6;
+      const ac = this.buf.readUInt16BE(p); p += 2;
+      for (let j = 0; j < ac; j++) { const l = this.buf.readUInt32BE(p + 2); p += 6 + l; }
+    }
+    return false;
+  }
   hasMethod(name, desc) {
     let p = this.methodsAt + 2;
     for (let i = 0; i < this.methodCount; i++) {
@@ -193,6 +210,21 @@ const ADDITIONS = [
 const STUB_ONLY = [
   ['java/lang/SuppressWarnings', 0x0401, 'value', '()[Ljava/lang/String;'],
 ];
+// Stub-only renames. TeaVM's class library declares some methods as «getMessage0» with a @Rename
+// annotation that TeaVM applies when it builds the program, so they work at runtime, but javac
+// only sees the stubs and reports "cannot find symbol getMessage()". wait/notify stay hidden on
+// purpose: there are no threads in the browser engine. clone() and getSuppressed() stay hidden too:
+// they compile once renamed but trap at runtime, and a compile error is kinder than a crash.
+const STUB_RENAMES = [
+  ['java/lang/Throwable', 'getMessage0', '()Ljava/lang/String;', 'getMessage'],
+  ['java/lang/Throwable', 'getLocalizedMessage0', '()Ljava/lang/String;', 'getLocalizedMessage'],
+  ['java/lang/Throwable', 'toString0', '()Ljava/lang/String;', 'toString'],
+  ['java/lang/Throwable', 'getStackTrace0', '()[Ljava/lang/StackTraceElement;', 'getStackTrace'],
+  ['java/lang/Throwable', 'getClass0', '()Ljava/lang/Class;', 'getClass'],
+  ['java/lang/Object', 'getClass0', '()Ljava/lang/Class;', 'getClass'],
+  ['java/lang/annotation/Annotation', 'annotationType0', '()Ljava/lang/Class;', 'annotationType'],
+  ['java/net/URISyntaxException', 'getMessage0', '()Ljava/lang/String;', 'getMessage'],
+];
 function callStatic(cf, loads, name, desc, ret) {
   const ref = cf.methodRef(TMATH, name, desc);
   return { maxStack: 4, maxLocals: 4, bytes: Buffer.from([...loads, 0xb8, ref >> 8, ref & 255, ret]) };
@@ -200,7 +232,7 @@ function callStatic(cf, loads, name, desc, ret) {
 
 // 1+2a. compile stubs
 const compile = readArchive(path.join(srcDir, 'compile-classlib-teavm.bin'));
-let renamed = 0, duplicatesHidden = 0;
+let renamed = 0, methodRenames = 0, duplicatesHidden = 0;
 const toJava = (s) => s.replace(/org\/teavm\/classlib\/((?:[a-z0-9_]+\/)*)T([A-Za-z0-9_]+)((?:\$[A-Za-z0-9_]+)*)/g, (m, pkg, name, nested) => {
   const target = pkg + name + nested;
   return compile.has(target + '.class') ? target : m;
@@ -213,11 +245,13 @@ for (const [name, data] of compile) {
   for (const [, m, d] of adds) cf.addMethod(ACC_PUBLIC_STATIC, m, d, null);
   const stubs = STUB_ONLY.filter(([c]) => c + '.class' === name);
   for (const [, flags, m, d] of stubs) cf.addMethod(flags, m, d, null);
+  let rn = 0;
+  for (const [c, from, d, to] of STUB_RENAMES) if (c + '.class' === name && !cf.hasMethod(to, d) && cf.renameMethod(from, d, to)) rn++;
   const hidden = cf.hideDuplicateMethods();
-  if (n || adds.length || stubs.length || hidden) { compile.set(name, cf.toBuffer()); renamed += n; duplicatesHidden += hidden; }
+  if (n || adds.length || stubs.length || rn || hidden) { compile.set(name, cf.toBuffer()); renamed += n; methodRenames += rn; duplicatesHidden += hidden; }
 }
 writeArchive(path.join(outDir, 'compile-classlib-teavm.bin'), compile);
-console.log(`compile classlib: renamed ${renamed} internal class names, hid ${duplicatesHidden} duplicate overloads, added ${ADDITIONS.length + STUB_ONLY.length} method stubs`);
+console.log(`compile classlib: renamed ${renamed} internal class names, ${methodRenames} methods to their Java names, hid ${duplicatesHidden} duplicate overloads, added ${ADDITIONS.length + STUB_ONLY.length} method stubs`);
 
 // 2b. runtime classes
 const runtime = readArchive(path.join(srcDir, 'runtime-classlib-teavm.bin'));
