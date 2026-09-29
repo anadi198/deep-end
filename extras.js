@@ -302,7 +302,7 @@
             <p>Sign in with Google to keep progress, code, reviews and review cards in step across your devices. Your data lives in a private Firebase database that only your account can read.</p>
             ${sync.email ? `<p>Signed in as <b>${esc(sync.email)}</b>${sync.at ? ` · last synced ${A.ago(sync.at)}` : ''}.</p><p><button class="btn" data-s="now">Sync now</button> <button class="btn quiet" data-s="out">Sign out</button></p>` : '<p><button class="btn primary" data-s="in">Sign in with Google</button></p>'}
             ${sync.error ? `<div class="callout warn"><b>Sync problem</b><p>${esc(sync.error)}</p></div>` : ''}` : `
-            <p>Not configured yet. The site owner creates a free Firebase project (Spark plan, no card), turns on Google sign-in, adds <code>anadi198.github.io</code> to the authorized domains, creates a Firestore database, publishes <code>firestore.rules</code>, and pastes the web config into <code>sync-config.js</code>.</p>`}
+            <p>Not configured yet. The site owner creates a free Firebase project (Spark plan, no card), turns on Google sign-in, adds <code>anadi198.github.io</code> to the authorized domains, creates a Firestore database, publishes <code>firestore.rules</code> with their own user id, and adds the web config as the <code>LAB_FIREBASE</code> repository secret, which the deploy workflow writes into the site. For a local copy, fill in <code>sync-config.example.js</code> and save it as <code>sync-config.js</code> (gitignored).</p>`}
           <h2>Focus mode</h2>
           <p>The <b>◎</b> button in the top bar hides the outline and everything else except the current step. <b>Esc</b> leaves it.</p>
         </div>`;
