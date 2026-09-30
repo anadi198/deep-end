@@ -1,0 +1,539 @@
+(function (root) {
+  const RL = root.RL, R = RL.R;
+  RL.module({
+    id: 'borrow', title: 'Borrowing: lending without giving away', short: 'Borrow',
+    blurb: 'The read-write lock the compiler checks, why reordering lines fixes borrow errors, how to read «\'a», what «&self» and «&mut self» promise, and how AI code cheats its way past the borrow checker.',
+    items: [
+      {
+        lesson: 'borrow-rwlock', title: 'Borrowing is a read-write lock the compiler checks', mins: 7,
+        remember: 'Many readers or one writer, never both at once: «&T» is a shared read borrow, «&mut T» is the single exclusive write borrow.',
+        cue: 'E0502 or E0499 "cannot borrow ... because it is also borrowed" → two borrows overlap; finish with one before starting the other',
+        body: R`
+          ## Lending without giving away
+
+          «&x» lends x for reading. «&mut x» lends it for writing. The owner gets it back when the borrow ends, and nothing is copied. Module 02 said a function that only reads should take «&str»: this is why that works.
+
+          :::vs The same rule in two worlds
+          ~~~java
+          ReadWriteLock rw = new ReentrantReadWriteLock();
+          rw.readLock().lock();   // many threads may hold this
+          rw.writeLock().lock();  // only one, and no readers
+          ~~~
+          ~~~rust
+          let r1 = &data;       // any number of shared borrows
+          let r2 = &data;
+          let w = &mut data;    // only one, and no shared borrow still in use
+          ~~~
+          :::
+
+          The difference: Java checks at run time, and only if you remembered to take the lock. Rust checks at compile time, for every variable, at zero run-time cost.
+
+          ## The classic: keeping a reference while changing the Vec
+
+          ~~~rust !fail
+          fn main() {
+              let mut queue = vec![String::from("A01"), String::from("A08")];
+              let first = &queue[0];
+              queue.push(String::from("A03"));
+              println!("{first}");
+          }
+          ~~~
+
+          Why the compiler refuses: «push» may need a bigger buffer, which moves every element to new memory. «first» would then point at freed memory. Java's version of this bug is a «ConcurrentModificationException» at run time, if you are lucky. Here it is a compile error.
+
+          @stop
+
+          ## Two writers
+
+          ~~~rust !fail
+          fn main() {
+              let mut count = 0;
+              let a = &mut count;
+              let b = &mut count;
+              *a += 1;
+              *b += 1;
+          }
+          ~~~
+
+          «*a» means "the value that «a» points at". Two «&mut» borrows alive at once is E0499: the single-writer rule.
+
+          @quiz 0
+        `,
+        quiz: [
+          {
+            q: 'Which of these does the borrow checker allow?',
+            options: ['Two «&mut» borrows of the same «Vec», both used', 'A «&» borrow of an element, then «push» on the Vec, then using the element', 'Any number of «&» borrows used at the same time', 'A «&mut» borrow while a «&» borrow is still used afterwards'],
+            answer: 2,
+            why: 'Shared borrows never conflict with each other. Every other option mixes a writer with another borrow that is still in use.',
+          },
+        ],
+      },
+      {
+        lesson: 'borrow-scopes', title: 'A borrow lasts until its last use', mins: 5,
+        remember: 'A borrow ends at its last use, not at the closing brace, so reordering lines often fixes a borrow error.',
+        cue: 'A borrow error between two lines → can the read finish before the write starts? Move the last use up, or copy the small value out first',
+        body: R`
+          @predict 0
+
+          The compiler tracks where each borrow is **last used**. Once a reference is finished with, the value is free to be changed again, even though the variable is still in scope.
+
+          ## Four fixes, in the order to try them
+
+          1. **Reorder**: finish reading before you write.
+          2. **Copy out a small value**: a length or an id is «Copy», so it does not borrow anything.
+          3. **Clone something small**: fine for a short id; not for a message body.
+          4. **Index again later**: read «queue[0]» after the change instead of holding a reference across it.
+
+          ~~~rust !run
+          fn main() {
+              let mut queue = vec![String::from("A01"), String::from("A08")];
+              let first_len = queue[0].len();
+              queue.push(String::from("A03"));
+              println!("{first_len} {}", queue.len());
+          }
+          ~~~
+
+          «first_len» is a «usize», a plain copied number, so nothing is borrowed across the «push».
+
+          :::review When a PR "fixes" a borrow error
+          Check which of the four it used. Reorders and copies of small values are real fixes. A clone of something big, or the escape hatches in the last lesson of this module, are worth a comment.
+          :::
+        `,
+        predict: [
+          {
+            q: 'The same queue, but the reference is used before the push. What happens?',
+            code: 'fn main() {\n    let mut queue = vec![String::from("A01"), String::from("A08")];\n    let first = &queue[0];\n    println!("{first}");\n    queue.push(String::from("A03"));\n    println!("{}", queue.len());\n}',
+            options: ['A01\n3', 'Compile error'],
+            answer: 0,
+            why: '«first» is last used in the first «println!», before the «push». The shared borrow is over by then, so the write is allowed.',
+          },
+        ],
+      },
+      {
+        lesson: 'borrow-lifetimes', title: 'Reading lifetimes («\'a») without writing them', mins: 8,
+        remember: 'A lifetime like «\'a» is a label, not a duration you choose: it says a reference cannot outlive the thing it points into.',
+        cue: '«T: \'static» on «spawn» or a thread → the value must own all its data (borrow nothing short-lived), not "live forever"',
+        body: R`
+          ## Most lifetimes are invisible
+
+          «fn segment_name(line: &str) -> &str» has a lifetime you do not see: the compiler reads it as "the result points into «line»". That rule (one reference in, so the reference out borrows from it) covers most functions.
+
+          ## When you do see them
+
+          ~~~rust !run
+          fn longer<'a>(a: &'a str, b: &'a str) -> &'a str {
+              if a.len() >= b.len() { a } else { b }
+          }
+
+          fn main() {
+              let x = String::from("ADT^A01");
+              let y = String::from("ORU");
+              println!("{}", longer(&x, &y));
+          }
+          ~~~
+
+          With two references in, the compiler cannot guess which one the result points into, so the signature says it:
+
+          - «<'a>» declares a label, like a generic type parameter.
+          - «&'a str» is "a borrowed «str» that lives at least as long as «'a»". The result can live no longer than either input.
+          - On a struct, «struct Parser<'a> { buf: &'a [u8] }» means: a «Parser» borrows a buffer and cannot outlive it.
+
+          @predict 0
+
+          @stop
+
+          ## The error you will meet: returning a reference to a local
+
+          ~~~rust !fail
+          fn header(raw: &str) -> &str {
+              let upper = raw.to_uppercase();
+              &upper[..3]
+          }
+
+          fn main() {
+              println!("{}", header("msh|x"));
+          }
+          ~~~
+
+          «upper» is dropped when «header» returns, so a reference into it would dangle. The fix is to return an owned «String».
+
+          ## «'static», threads and «spawn»
+
+          «'static» means "borrows nothing short-lived". A string literal is «'static». So is an owned «String»: it borrows nothing, even though it will be freed one day.
+
+          «std::thread::spawn» and «tokio::spawn» demand «'static», because the new thread or task may outlive the function that started it:
+
+          ~~~rust !fail
+          use std::thread;
+
+          fn main() {
+              let batch = vec![1, 2, 3];
+              let handle = thread::spawn(|| {
+                  println!("{}", batch.len());
+              });
+              handle.join().unwrap();
+          }
+          ~~~
+
+          ~~~rust !run
+          use std::thread;
+
+          fn main() {
+              let batch = vec![1, 2, 3];
+              let handle = thread::spawn(move || {
+                  println!("{}", batch.len());
+              });
+              handle.join().unwrap();
+          }
+          ~~~
+
+          «move» makes the closure take ownership of «batch», so the thread owns what it uses. That is why you see «move» closures and «Arc» clones right before every spawn in connector code.
+
+          :::review Lifetimes in a PR
+          - A few «'a» on a parser or an iterator: normal.
+          - Lifetimes spreading across many structs to make something compile: ask whether the data should just be owned. Owned data plus an occasional clone is usually easier to maintain.
+          - «Box::leak» to get a «'static» reference: leaks memory on purpose. See the last lesson in this module.
+          :::
+        `,
+        predict: [
+          {
+            q: 'No «\'a» anywhere. What happens?',
+            code: 'fn first_word(s: &str) -> &str {\n    s.split(\' \').next().unwrap_or("")\n}\n\nfn main() {\n    let w;\n    {\n        let line = String::from("ACK AA");\n        w = first_word(&line);\n    }\n    println!("{w}");\n}',
+            options: ['ACK', 'Compile error', 'It panics'],
+            answer: 1, error: 'E0597',
+            why: '«w» points into «line», and «line» is dropped at the inner closing brace. Printing «w» afterwards would read freed memory, so rustc says «line» "does not live long enough". The hidden lifetime did its job with no «\'a» written.',
+          },
+        ],
+      },
+      {
+        lesson: 'borrow-self', title: '«&self», «&mut self», «self»: what a method can do', mins: 6,
+        remember: 'The receiver says it all: «&self» reads, «&mut self» changes, and «self» consumes the object so the caller cannot use it again.',
+        cue: 'A method name starts with «as_», «to_» or «into_» → «as_» is a free view, «to_» makes a copy, «into_» consumes the original',
+        body: R`
+          | Receiver | Meaning | Java-ish |
+          |---|---|---|
+          | «&self» | read-only access | a getter, or any method that does not mutate |
+          | «&mut self» | may change the object | a setter; the caller needs «let mut obj» |
+          | «self» | takes the object | a builder's «build()»; the old variable is gone afterwards |
+
+          @predict 0
+
+          ## Consuming methods
+
+          ~~~rust !fail
+          fn main() {
+              let raw = String::from("ADT");
+              let bytes = raw.into_bytes();
+              println!("{} {}", bytes.len(), raw);
+          }
+          ~~~
+
+          «into_bytes» takes «self», so «raw» is moved into it. In exchange it can hand back the same buffer as bytes without copying anything.
+
+          @stop
+
+          ## The naming convention
+
+          Rust's API guidelines give method names a cost signal. Every standard library type follows it, and so does most well-written code:
+
+          | Prefix | Cost | Examples |
+          |---|---|---|
+          | «as_» | a free view that borrows | «s.as_str()», «s.as_bytes()», «opt.as_ref()» |
+          | «to_» | allocates or copies | «s.to_string()», «s.to_uppercase()», «slice.to_vec()» |
+          | «into_» | consumes self, usually cheap | «s.into_bytes()», «v.into_iter()», «x.into()» |
+
+          In a hot loop, a «to_» call is worth a second look. An «as_» call never is.
+        `,
+        predict: [
+          {
+            q: 'What happens?',
+            code: 'struct Counter {\n    n: u32,\n}\n\nimpl Counter {\n    fn bump(&mut self) {\n        self.n += 1;\n    }\n}\n\nfn main() {\n    let c = Counter { n: 0 };\n    c.bump();\n    println!("{}", c.n);\n}',
+            options: ['1', 'Compile error', '0'],
+            answer: 1, error: 'E0596',
+            why: '«bump» takes «&mut self», and you can only borrow mutably from a variable declared «mut». rustc suggests «let mut c».',
+          },
+        ],
+      },
+      {
+        lesson: 'borrow-ai-fixes', title: 'How AI silences the borrow checker', mins: 7, hunts: ['panic', 'cost', 'unbounded'],
+        remember: 'When code fought the borrow checker, check how it won: reordering or borrowing is a real fix; big clones, «RefCell» and leaked memory move the problem somewhere worse.',
+        cue: 'A PR adds «RefCell», «Rc<RefCell<..>>», «Box::leak» or a pile of «.clone()» → ask which borrow error it fixed, and whether a reorder or a borrow would do',
+        body: R`
+          ## The escape hatches, best to worst
+
+          | The fix | What it really does | In review |
+          |---|---|---|
+          | Reorder lines, borrow instead of own, return an owned value | fixes the design | good |
+          | «.clone()» of something small, or of an «Arc» | a cheap copy | fine |
+          | «.clone()» of big data in a loop | pays for every byte, every time | comment |
+          | «RefCell», «Rc<RefCell<T>>» | moves the borrow check to run time: a conflict becomes a panic | comment, ask why |
+          | «Box::leak», «std::mem::forget», «unsafe» | leaks memory, or switches the checks off | block; get a second reviewer for «unsafe» |
+
+          ## «RefCell»: the same rules, checked while running
+
+          ~~~rust !panic
+          use std::cell::RefCell;
+
+          fn main() {
+              let queue = RefCell::new(vec![1, 2, 3]);
+              let reading = queue.borrow();
+              queue.borrow_mut().push(4);
+              println!("{}", reading.len());
+          }
+          ~~~
+
+          Exactly the conflict from the first lesson of this module, but the compiler has been told to stand aside, so it becomes a panic on the day that code path runs. «RefCell» has real uses (a cache behind a «&self» method, graph structures). In a PR whose description says "fixed borrow checker errors", it is a smell.
+
+          @stop
+
+          ## «Box::leak»: «'static» by never freeing
+
+          ~~~rust !run
+          fn label(id: u64) -> &'static str {
+              Box::leak(format!("retry {id}").into_boxed_str())
+          }
+
+          fn main() {
+              for id in 0..3 {
+                  println!("{}", label(id));
+              }
+          }
+          ~~~
+
+          It works, and every call leaks its string forever. In a service that calls it once per message, memory only ever grows. Returning a «String» is the fix.
+
+          @quiz 0
+
+          @exercises borrow-review-retry
+        `,
+        quiz: [
+          {
+            q: 'A PR says "fixed the borrow checker errors". The diff wraps a struct\'s «Vec» in «Rc<RefCell<...>>». What do you ask?',
+            options: ['Nothing: «RefCell» is the standard fix', 'Which borrow conflict it was solving, because «RefCell» turns that conflict into a run-time panic', 'Whether «Arc<Mutex>» would be faster', 'Whether it could use «unsafe» instead'],
+            answer: 1,
+            why: 'The conflict did not go away; it moved from compile time to run time. Often a reorder, a borrow, or taking ownership fixes the real problem.',
+          },
+        ],
+      },
+      {
+        exercise: {
+          id: 'borrow-fix-outbox', title: 'Make the outbox compile, with no clones', kind: 'fix', mins: 10, diff: 'medium', topics: ['borrowing'],
+          statement: R`
+            «send_next» should move the oldest pending message to «sent» and return a report line. It does not compile: press **Run** and read which borrows overlap.
+
+            Fix it without cloning anything. The tests check the report text and that «sent» and «pending» end up right.
+          `,
+          starter: R`
+pub struct Outbox {
+    pending: Vec<String>,
+    sent: Vec<String>,
+}
+
+impl Outbox {
+    pub fn new() -> Outbox {
+        Outbox { pending: Vec::new(), sent: Vec::new() }
+    }
+
+    pub fn queue(&mut self, msg: &str) {
+        self.pending.push(msg.to_string());
+    }
+
+    /// Moves the oldest pending message to sent and returns a report line.
+    pub fn send_next(&mut self) -> Option<String> {
+        let next = self.pending.first()?;
+        self.sent.push(next.clone());
+        self.pending.remove(0);
+        Some(format!("sent {next}, {} left", self.pending.len()))
+    }
+}
+`,
+          starterFails: 'compile',
+          tests: [
+            { name: 'sends in order', ex: true, code: 'let mut o = Outbox::new();\no.queue("A01");\no.queue("A08");\nassert_eq!(o.send_next().as_deref(), Some("sent A01, 1 left"));\nassert_eq!(o.send_next().as_deref(), Some("sent A08, 0 left"));' },
+            { name: 'an empty outbox sends nothing', ex: true, code: 'let mut o = Outbox::new();\nassert_eq!(o.send_next(), None);' },
+            { name: 'sent keeps the history', code: 'let mut o = Outbox::new();\no.queue("A01");\no.send_next();\nassert_eq!(o.sent, vec!["A01".to_string()]);\nassert!(o.pending.is_empty());' },
+          ],
+          lint: [
+            { re: '\\.clone\\(\\)|\\.to_string\\(\\)[^;]*sent|to_owned', when: 'present', note: 'This works, but copies the message. «remove(0)» already hands you the «String» itself.' },
+          ],
+          hints: [
+            'The error says «next» borrows «self.pending» while «remove(0)» wants to change it.',
+            '«remove(0)» returns the removed «String». Take ownership of it instead of borrowing it.',
+            'Return «None» early if «pending» is empty, then «let next = self.pending.remove(0);», build the report line, and push «next» into «sent» last.',
+          ],
+          solution: {
+            rust: R`
+pub struct Outbox {
+    pending: Vec<String>,
+    sent: Vec<String>,
+}
+
+impl Outbox {
+    pub fn new() -> Outbox {
+        Outbox { pending: Vec::new(), sent: Vec::new() }
+    }
+
+    pub fn queue(&mut self, msg: &str) {
+        self.pending.push(msg.to_string());
+    }
+
+    /// Moves the oldest pending message to sent and returns a report line.
+    pub fn send_next(&mut self) -> Option<String> {
+        if self.pending.is_empty() {
+            return None;
+        }
+        let next = self.pending.remove(0);
+        let line = format!("sent {next}, {} left", self.pending.len());
+        self.sent.push(next);
+        Some(line)
+    }
+}
+`,
+            why: R`
+              - «first()» returned a reference into «pending», and that reference was still needed for the report after «remove(0)» changed «pending». That is the read-write conflict.
+              - «remove(0)» returns the «String» it took out. Owning it means nothing is borrowed from «pending» any more, and the clone disappears too.
+              - Build the report line before pushing «next» into «sent», because the push moves «next».
+              - Aside: «remove(0)» shifts every remaining element. For a real queue, «VecDeque» with «pop_front()» avoids that. Not the point here.
+            `,
+            talk: 'next borrowed the pending Vec while remove(0) changed it. remove(0) returns the String itself, so taking ownership of it ends the borrow and also removes the need to clone.',
+          },
+          wrong: [
+            { name: 'forgets to remove', rust: R`
+pub struct Outbox { pending: Vec<String>, sent: Vec<String> }
+impl Outbox {
+    pub fn new() -> Outbox { Outbox { pending: Vec::new(), sent: Vec::new() } }
+    pub fn queue(&mut self, msg: &str) { self.pending.push(msg.to_string()); }
+    pub fn send_next(&mut self) -> Option<String> {
+        let next = self.pending.first()?.clone();
+        self.sent.push(next.clone());
+        Some(format!("sent {next}, {} left", self.pending.len()))
+    }
+}
+` },
+          ],
+        },
+      },
+      {
+        exercise: {
+          id: 'borrow-review-retry', title: 'PR: fix the borrow checker errors in the retry queue', kind: 'review', mins: 12, diff: 'medium', topics: ['borrowing'],
+          file: 'src/retry.rs',
+          statement: R`
+            **fix(retry): fix borrow checker errors**
+
+            > The retry queue would not compile after adding «tick» and «label». Wrapped the items in «Rc<RefCell<...>>» and adjusted the signatures. Compiles now, and the existing tests pass.
+
+            Context: the queue lives on one thread; «tick» runs every second; «label» is called once per retry, which is thousands of times an hour.
+          `,
+          code: R`
+use std::cell::RefCell;
+use std::rc::Rc;
+
+pub struct Retry {
+    pub id: u64,
+    pub attempts: u32,
+    pub body: Vec<u8>,
+}
+
+pub struct RetryQueue {
++    items: Rc<RefCell<Vec<Retry>>>,
+}
+
+impl RetryQueue {
+    pub fn new() -> RetryQueue {
++        RetryQueue { items: Rc::new(RefCell::new(Vec::new())) }
+    }
+
+    pub fn push(&self, r: Retry) {
++        self.items.borrow_mut().push(r);
+    }
+
++    /// Drops every item that has used up its attempts. Returns how many are left.
++    pub fn tick(&self, max: u32) -> usize {
++        let items = self.items.borrow(); ⟦a⟧
++        for r in items.iter() {
++            if r.attempts >= max {
++                self.items.borrow_mut().retain(|x| x.id != r.id); ⟦a⟧
++            }
++        }
++        items.len()
++    }
++
++    pub fn label(&self, id: u64) -> &'static str {
++        let items = self.items.borrow(); ⟦d1⟧
++        let found = items.iter().find(|r| r.id == id).map(|r| r.body.clone()); ⟦b⟧
++        let text = match found {
++            Some(body) => format!("retry {id}: {} bytes", body.len()),
++            None => format!("retry {id}: gone"),
++        };
++        Box::leak(text.into_boxed_str()) ⟦c⟧
++    }
+}
+`,
+          issues: [
+            {
+              id: 'a', tag: 'panic', title: '«tick» panics as soon as an item runs out of attempts',
+              why: '«items» holds a shared «borrow()» for the whole loop, and inside it «borrow_mut()» asks for a write borrow of the same «RefCell». That is the read-write conflict the compiler used to reject; with «RefCell» it becomes a run-time panic ("already borrowed"). The tests pass only because no test item reaches «max».',
+              fix: 'Drop the «RefCell» and write «tick(&mut self, max: u32)» with «self.items.retain(|r| r.attempts < max); self.items.len()». One mutable borrow, no conflict.',
+              demo: 'let q = RetryQueue::new();\nq.push(Retry { id: 1, attempts: 3, body: vec![] });\nassert_eq!(q.tick(3), 0);',
+            },
+            {
+              id: 'b', tag: 'cost', title: 'Clones a whole body to read its length',
+              why: 'Bodies can be large, and «label» runs thousands of times an hour. The clone copies every byte just so «.len()» can be called on the copy.',
+              fix: '«.map(|r| r.body.len())»: read the length through the borrow.',
+            },
+            {
+              id: 'c', tag: 'unbounded', title: 'Every label leaks its string forever',
+              why: '«Box::leak» gives a «&\'static str» by never freeing the memory. One leak per retry, thousands an hour, for as long as the process runs.',
+              fix: 'Return «String». The caller owns it and it is freed when they are done.',
+            },
+          ],
+          decoys: [
+            { id: 'd1', why: 'A shared «borrow()» for the duration of a read-only lookup is fine: nothing tries to write while it lives. (The whole «RefCell» is still unnecessary here, but this line is not a bug.)' },
+          ],
+          hints: [
+            'One issue crashes, one wastes work, one grows without limit.',
+            'For the crash: in «tick», which borrows of «self.items» are alive at the same time?',
+            'For the growth: what happens to the memory «Box::leak» hands out?',
+          ],
+          solution: {
+            fixed: R`
+pub struct Retry {
+    pub id: u64,
+    pub attempts: u32,
+    pub body: Vec<u8>,
+}
+
+pub struct RetryQueue {
+    items: Vec<Retry>,
+}
+
+impl RetryQueue {
+    pub fn new() -> RetryQueue {
+        RetryQueue { items: Vec::new() }
+    }
+
+    pub fn push(&mut self, r: Retry) {
+        self.items.push(r);
+    }
+
+    /// Drops every item that has used up its attempts. Returns how many are left.
+    pub fn tick(&mut self, max: u32) -> usize {
+        self.items.retain(|r| r.attempts < max);
+        self.items.len()
+    }
+
+    pub fn label(&self, id: u64) -> String {
+        match self.items.iter().find(|r| r.id == id) {
+            Some(r) => format!("retry {id}: {} bytes", r.body.len()),
+            None => format!("retry {id}: gone"),
+        }
+    }
+}
+`,
+            talk: 'The RefCell turned a compile error into a panic: tick holds a borrow while asking for borrow_mut. label cloned a body to read its length, and leaked a string on every call. Plain &mut self methods and returning String fix all three.',
+          },
+        },
+      },
+    ],
+  });
+})(typeof globalThis !== 'undefined' ? globalThis : this);

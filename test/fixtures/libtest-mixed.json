@@ -1,0 +1,6 @@
+{
+ "success": false,
+ "exitDetail": "Exited with status 101",
+ "stdout": "\nrunning 3 tests\ntest tests::t1 ... FAILED\ntest tests::t0 ... ok\ntest tests::t2 ... FAILED\n\nfailures:\n\n---- tests::t1 stdout ----\nchecking empty\n\nthread 'tests::t1' (53) panicked at src/lib.rs:9:110:\ncalled `Option::unwrap()` on a `None` value\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n---- tests::t2 stdout ----\n\nthread 'tests::t2' (54) panicked at src/lib.rs:11:15:\nassertion `left == right` failed: first byte of the frame\n  left: 1\n right: 2\n\n\nfailures:\n    tests::t1\n    tests::t2\n\ntest result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+ "stderr": "   Compiling playground v0.0.1 (/playground)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.53s\n     Running unittests src/lib.rs (target/debug/deps/playground-a53ce3d454b69f91)\nerror: test failed, to rerun pass `--lib`\n"
+}
