@@ -1,7 +1,7 @@
-/* Cloud sync for the prep labs: Google sign-in (Firebase Auth) and one Firestore document per lab,
+/* Cloud sync for the Deep End labs: Google sign-in (Firebase Auth) and one Firestore document per lab,
  * at users/{uid}/labs/{lab}. Free Spark plan; nothing loads until you sign in once.
  *
- * Setup: sync-config.js sets window.LAB_FIREBASE = { apiKey, authDomain, projectId, appId, ... }. That file is
+ * Setup: shared/sync-config.js sets window.LAB_FIREBASE = { apiKey, authDomain, projectId, appId, ... }. That file is
  * gitignored: on GitHub Pages the deploy workflow writes it from the LAB_FIREBASE repository secret, and a
  * local copy starts from sync-config.example.js. Without it the page works and sync stays off.
  * A lab calls LabSync.init({ lab, getState, merge, apply, subscribe }):

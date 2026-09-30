@@ -1,7 +1,7 @@
 // DSA Lab runner: lets the DSA Lab page (on GitHub Pages or served from here) compile and run
 // your Java with the JDK installed on this computer, instead of the in-browser compiler.
 //
-//   node runner/server.mjs          (no npm install needed; needs javac + java on PATH, JDK 17+)
+//   node dsa/runner/server.mjs          (no npm install needed; needs javac + java on PATH, JDK 17+)
 //
 // It listens on 127.0.0.1 only, answers only the known page origins, and every run request must
 // carry the pairing token (kept in runner/.dsalab-token). It runs any Java the paired page sends,
@@ -11,17 +11,17 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
-const APP_ROOT = normalize(join(HERE, '..'));
+const SITE_ROOT = normalize(join(HERE, '..', '..')); // the Deep End folder: the lab page loads ../shared/
 const PORT = Number(process.env.DSALAB_PORT || 8788);
-const PAGES_URL = process.env.DSALAB_PAGES_URL || 'https://anadi198.github.io/learn-dsa/';
+const PAGES_URL = process.env.DSALAB_PAGES_URL || 'https://anadi198.github.io/dsa/';
 const ORIGINS = new Set([
   new URL(PAGES_URL).origin,
   `http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`,
-  'http://localhost:8766', 'http://127.0.0.1:8766',
+  'http://localhost:8767', 'http://127.0.0.1:8767',
   ...(process.env.DSALAB_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
 ]);
 const MAX_OUT = 16 * 1024 * 1024;
@@ -136,17 +136,20 @@ const server = http.createServer(async (req, res) => {
 
   if (!url.pathname.startsWith('/api/')) { // static app files, so http://localhost:PORT works too
     if (req.method !== 'GET') { res.writeHead(405).end(); return; }
-    const path = normalize(join(APP_ROOT, url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname)));
-    const rel = path.slice(APP_ROOT.length).split(/[\\/]/).filter(Boolean);
-    if (!path.startsWith(APP_ROOT) || ['runner', 'tools', 'node_modules'].includes(rel[0]) || rel.some((seg) => seg.startsWith('.'))) { res.writeHead(404).end(); return; }
+    const path = normalize(join(SITE_ROOT, decodeURIComponent(url.pathname).replace(/\/$/, '/index.html')));
+    const rel = path.slice(SITE_ROOT.length).split(/[\\/]/).filter(Boolean);
+    if (!path.startsWith(SITE_ROOT + sep) || rel.some((seg) => seg.startsWith('.') || ['runner', 'bridge', 'tools', 'node_modules'].includes(seg))) { res.writeHead(404).end(); return; }
     try {
       const data = await readFile(path);
       let out = data;
       // Served from here: pair automatically.
-      if (url.pathname === '/' || url.pathname === '/index.html') out = Buffer.from(data.toString('utf8').replace('<head>', `<head><script>window.DSALAB_LOCAL_TOKEN=${JSON.stringify(TOKEN)};</script>`));
+      if (path === join(SITE_ROOT, 'dsa', 'index.html')) out = Buffer.from(data.toString('utf8').replace('<head>', `<head><script>window.DSALAB_LOCAL_TOKEN=${JSON.stringify(TOKEN)};</script>`));
       res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'application/octet-stream', 'cache-control': 'no-store' });
       res.end(out);
-    } catch { res.writeHead(404).end('not found'); }
+    } catch (e) {
+      if (e.code === 'EISDIR') res.writeHead(301, { location: url.pathname + '/' }).end();
+      else res.writeHead(404).end('not found');
+    }
     return;
   }
 
@@ -169,7 +172,7 @@ if (!JAVA) { console.error('javac/java not found on PATH. Install a JDK (17+) an
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`DSA Lab runner — Java ${JAVA}`);
   console.log('');
-  console.log(`  Open the lab here (already paired):  http://localhost:${PORT}/`);
+  console.log(`  Open the lab here (already paired):  http://localhost:${PORT}/dsa/`);
   console.log(`  Or pair the hosted site once:        ${PAGES_URL}#pair=${TOKEN}`);
   console.log('');
   console.log('Then pick "Your JDK" in the code panel. Ctrl+C stops the runner.');

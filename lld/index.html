@@ -8,7 +8,7 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="LLD Lab: low-level design, one pattern at a time">
 <meta property="og:description" content="Design patterns and LLD case studies in Java: short lessons, auto-graded exercises in your browser, Claude design reviews, spaced review.">
-<meta property="og:url" content="https://anadi198.github.io/learn-lld/">
+<meta property="og:url" content="https://anadi198.github.io/lld/">
 <meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#EEF3F2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0C1312" media="(prefers-color-scheme: dark)">
@@ -25,6 +25,7 @@
 <div class="app" id="app" data-tab="read" data-view="home">
   <header class="topbar">
     <button class="btn quiet icon-btn" id="navToggle" aria-label="Show or hide the course outline" title="Show or hide the course outline">☰</button>
+    <a class="btn quiet icon-btn home-btn" href="../" title="All labs" aria-label="All labs"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg></a>
     <a class="brand" href="#/" title="Home"><b>LLD<span>Lab</span></b><small>low-level design, one pattern at a time</small></a>
     <div class="spacer"></div>
     <button class="chip due" id="todayChip" title="Cards due in today's 5-minute review" hidden></button>
@@ -105,8 +106,8 @@
 <!-- /@modules -->
 <script src="viz.js"></script>
 <script src="engine.js"></script>
-<script src="sync-config.js"></script>
-<script src="sync.js"></script>
+<script src="../shared/sync-config.js"></script>
+<script src="../shared/sync.js"></script>
 <script src="app.js"></script>
 <script src="extras.js"></script>
 </body>

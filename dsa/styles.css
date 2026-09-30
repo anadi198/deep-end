@@ -875,3 +875,6 @@ button.chip:hover { border-color: var(--ink-3); }
 .chip.sync.error { color: var(--bad); }
 .chip.sync.signed-out { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--rule)); }
 @media (max-width: 520px) { .chip.sync { max-width: 34px; overflow: hidden; white-space: nowrap; flex: none; } }
+
+/* Deep End: the topbar "All labs" button; on phones it lives in the ⋯ menu instead */
+@media (max-width: 520px) { .home-btn { display: none !important; } }

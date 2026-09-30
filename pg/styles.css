@@ -610,3 +610,7 @@ li.CodeMirror-hint-active { background: var(--term-accent); color: var(--term-bg
 .sync-chip.signed-out { color: var(--accent); }
 .pop .sync-who { padding: 8px 10px; font-size: 13px; color: var(--ink-2); }
 @media (max-width: 520px) { .sync-chip { max-width: 38px; overflow: hidden; white-space: nowrap; } }
+
+/* Deep End: the topbar "All labs" button; on phones it moves to the top of the lesson drawer */
+.nav .all-labs { display: none; margin: 0 16px 12px; color: var(--ink-2); font-size: 13px; font-weight: 600; text-decoration: none; }
+@media (max-width: 520px) { .home-btn { display: none !important; } .nav .all-labs { display: block; } }

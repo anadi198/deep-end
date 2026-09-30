@@ -1,6 +1,6 @@
-# Deploys the lab to GitHub Pages. The Firebase web config for cloud sync is never committed: it lives
+# Deploys Deep End (every lab) to GitHub Pages. The Firebase web config for cloud sync is never committed: it lives
 # in the LAB_FIREBASE repository secret (Settings → Secrets and variables → Actions) and is written into
-# sync-config.js only inside this build. Without the secret the site deploys with sync switched off.
+# shared/sync-config.js only inside this build. Without the secret the site deploys with sync switched off.
 name: Deploy to GitHub Pages
 
 on:
@@ -43,8 +43,8 @@ jobs:
               console.log("::error::LAB_FIREBASE must be the Firebase web config object, with apiKey, authDomain and projectId");
               process.exit(1);
             }
-            require("fs").writeFileSync("sync-config.js", "window.LAB_FIREBASE = " + JSON.stringify(c) + ";\n");
-            console.log("sync-config.js written for project " + c.projectId);
+            require("fs").writeFileSync("shared/sync-config.js", "window.LAB_FIREBASE = " + JSON.stringify(c) + ";\n");
+            console.log("shared/sync-config.js written for project " + c.projectId);
           '
 
       - name: Setup Pages

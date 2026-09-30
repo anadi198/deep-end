@@ -40,7 +40,7 @@
       if (this.readyPromise) return this.readyPromise;
       if (location.protocol === 'file:') {
         this.state = 'error';
-        this.error = 'The in-browser compiler needs the page served over http(s). Run "node serve.mjs" and open http://localhost:8766, or use the hosted site.';
+        this.error = 'The in-browser compiler needs the page served over http(s). From the Deep End folder, run "node serve.mjs" and open http://localhost:8767/dsa/, or use the hosted site.';
         this.notify();
         return (this.readyPromise = Promise.reject(new Error(this.error)));
       }

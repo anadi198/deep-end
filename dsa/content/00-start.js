@@ -38,7 +38,7 @@ DSA.module({
         ## Two engines
         | | In-browser (default) | Your JDK |
         |---|---|---|
-        | What runs your code | A real «javac» plus TeaVM, compiled to WebAssembly, in this tab | Your installed JDK, via «node runner/server.mjs» |
+        | What runs your code | A real «javac» plus TeaVM, compiled to WebAssembly, in this tab | Your installed JDK, via «node dsa/runner/server.mjs» |
         | Works on | Any modern browser, phones included | The computer running the runner |
         | Runtime errors | Exception type only | Full message with the line number |
         | Recursion depth | About 5,000 nested calls | As deep as a normal JVM |

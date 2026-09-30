@@ -1,0 +1,11 @@
+# Firebase web config: written by the deploy workflow from the LAB_FIREBASE secret, never committed
+sync-config.js
+.build/
+scratch/
+node_modules/
+.claude/
+.DS_Store
+Thumbs.db
+.lldlab-token
+.dsalab-token
+.pglab-token

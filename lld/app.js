@@ -226,7 +226,8 @@
       <button class="item" data-m="export"><b>Export progress</b><span>Copy your progress as text</span></button>
       <button class="item" data-m="import"><b>Import progress</b><span>Paste progress exported from another device</span></button>
       <hr>
-      <a class="item" href="https://github.com/anadi198/learn-lld" target="_blank" rel="noopener"><b>Source on GitHub</b><span>anadi198/learn-lld</span></a>
+      <a class="item" href="../"><b>All labs</b><span>Back to Deep End</span></a>
+      <a class="item" href="https://github.com/anadi198/anadi198.github.io/tree/main/lld" target="_blank" rel="noopener"><b>Source on GitHub</b><span>anadi198/anadi198.github.io, folder lld</span></a>
       <hr>
       <button class="item" data-m="reset"><b>Reset all progress…</b><span>Clears exercises, drafts, reviews and cards in this browser</span></button>`,
     (m) => {
@@ -671,8 +672,8 @@
       <p>Status: <b>${esc(l.state === 'ready' ? 'connected, JDK ' + l.java : l.state === 'unpaired' ? 'runner found but this page is not paired' : 'runner not reachable')}</b></p>
       <ol style="padding-left:20px">
         <li>Install a JDK (17 or newer) and Node.js 18+.</li>
-        <li>From the <code>learn-lld</code> folder, run:<pre>node runner/server.mjs</pre></li>
-        <li>Open the link it prints. <code>http://localhost:8789/</code> comes paired already; the <code>#pair=…</code> link pairs the hosted site.</li>
+        <li>From the Deep End folder, run:<pre>node lld/runner/server.mjs</pre></li>
+        <li>Open the link it prints. <code>http://localhost:8789/lld/</code> comes paired already; the <code>#pair=…</code> link pairs the hosted site.</li>
       </ol>
       <p class="small">Full setup, including Claude sign-in and cloud sync: <a href="#/setup">Setup</a>.</p>`, [{ label: 'Check again', primary: true, fn: () => { E.Local.check().then((s) => toast(s === 'ready' ? 'Connected to your JDK' : 'Still not connected')); } }]);
   }
@@ -731,7 +732,7 @@
     const idx = all.map((t, i) => i).filter((i) => kind === 'submit' || all[i].ex);
     const tests = idx.map((i) => all[i]);
     if (x.jdk && engine() !== 'local') {
-      el.resBody.innerHTML = `<div class="verdict no"><b>Needs Your JDK</b><span>real threads</span></div><div class="res-note">This exercise starts real threads, and the in-browser engine has none. Start the runner (<code>node runner/server.mjs</code>) and switch to <b>Your JDK</b> above. <a href="#/setup">Setup</a></div>`;
+      el.resBody.innerHTML = `<div class="verdict no"><b>Needs Your JDK</b><span>real threads</span></div><div class="res-note">This exercise starts real threads, and the in-browser engine has none. Start the runner (<code>node lld/runner/server.mjs</code>) and switch to <b>Your JDK</b> above. <a href="#/setup">Setup</a></div>`;
       return;
     }
     if (engine() === 'local' && E.Local.state !== 'ready') {
@@ -965,7 +966,7 @@ Review it now.`;
     let body;
     if (R) body = reviewBodyHtml(R);
     else if (past) body = `<div class="res-note">Last review, ${ago(past.at)}${past.verdict ? ` · score ${past.verdict.score}/5` : ''}:</div><div class="rv-text prose">${md(past.text)}</div>`;
-    else body = `<div class="res-empty"><div><b>Review with Claude</b> reads the task, the checklist, your code and your latest test run, then gives you the one thing to fix.</div><div>It runs through the Claude Code CLI on your computer (the runner), so it needs <code>node runner/server.mjs</code> and a one-time sign-in. Without the runner, <b>Copy for Claude</b> gives you a prompt to paste into Claude.</div></div>`;
+    else body = `<div class="res-empty"><div><b>Review with Claude</b> reads the task, the checklist, your code and your latest test run, then gives you the one thing to fix.</div><div>It runs through the Claude Code CLI on your computer (the runner), so it needs <code>node lld/runner/server.mjs</code> and a one-time sign-in. Without the runner, <b>Copy for Claude</b> gives you a prompt to paste into Claude.</div></div>`;
     el.resBody.innerHTML = head + body;
     $('#rvModel').onchange = (e) => { S.review.model = e.target.value; save(); };
     const go = $('#rvGo'); if (go) go.onclick = () => startReview();

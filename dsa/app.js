@@ -220,7 +220,8 @@
       <button class="item" data-m="sync"><b>Cloud sync</b><span>Keep progress in step across your devices</span></button>
       <hr>
       <button class="item" data-m="engine"><b>Engines &amp; setup</b><span>In-browser Java vs your own JDK</span></button>
-      <a class="item" href="https://github.com/anadi198/learn-dsa" target="_blank" rel="noopener"><b>Source on GitHub</b><span>anadi198/learn-dsa</span></a>
+      <a class="item" href="../"><b>All labs</b><span>Back to Deep End</span></a>
+      <a class="item" href="https://github.com/anadi198/anadi198.github.io/tree/main/dsa" target="_blank" rel="noopener"><b>Source on GitHub</b><span>anadi198/anadi198.github.io, folder dsa</span></a>
       <hr>
       <button class="item" data-m="reset"><b>Reset all progress…</b><span>Clears solved problems, drafts and reviews in this browser</span></button>`,
     (m) => {
@@ -712,8 +713,8 @@
       <p>Status: <b>${esc(l.state === 'ready' ? 'connected — JDK ' + l.java : l.state === 'unpaired' ? 'runner found but this page is not paired' : 'runner not reachable')}</b></p>
       <ol style="padding-left:20px">
         <li>Install a JDK (17 or newer) and Node.js 18+.</li>
-        <li>From the <code>learn-dsa</code> folder, run:<pre>node runner/server.mjs</pre></li>
-        <li>Open the link it prints. <code>http://localhost:8788/</code> comes paired already${hosted ? '. The <code>#pair=…</code> link pairs this hosted site' : ''}.</li>
+        <li>From the Deep End folder, run:<pre>node dsa/runner/server.mjs</pre></li>
+        <li>Open the link it prints. <code>http://localhost:8788/dsa/</code> comes paired already${hosted ? '. The <code>#pair=…</code> link pairs this hosted site' : ''}.</li>
       </ol>`, [{ label: 'Check again', primary: true, fn: () => { E.Local.check().then((s) => toast(s === 'ready' ? 'Connected to your JDK' : 'Still not connected')); } }]);
   }
 

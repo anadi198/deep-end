@@ -28,7 +28,7 @@
       :::
 
       :::warn These exercises need your JDK
-      The in-browser engine has no threads. Start the runner (<code>node runner/server.mjs</code>) and pick **Your JDK** in the code panel. The lessons work anywhere.
+      The in-browser engine has no threads. Start the runner (<code>node lld/runner/server.mjs</code>) and pick **Your JDK** in the code panel. The lessons work anywhere.
       :::
     `,
     items: [

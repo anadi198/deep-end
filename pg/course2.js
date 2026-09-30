@@ -1125,13 +1125,13 @@ ${TABLE(['', 'In-browser (default)', 'Your Postgres'], [
 <h2>2 · Let tools connect without typing the password</h2>
 <p>Create a <em>pgpass</em> file with one line, <code>localhost:5432:*:postgres:YOUR_PASSWORD</code>. psql, pg_dump and the bridge all read it. On Windows it lives at <code>%APPDATA%\\postgresql\\pgpass.conf</code>; on macOS and Linux at <code>~/.pgpass</code> (then <code>chmod 600 ~/.pgpass</code>). Setting the <code>PGPASSWORD</code> environment variable also works.</p>
 <h2>3 · Start the bridge</h2>
-<pre class="sql" data-norun data-label="Terminal, in the learn-pg folder">cd bridge
+<pre class="sql" data-norun data-label="Terminal, in the pg folder of Deep End">cd bridge
 npm install      # first time only
 npm start</pre>
 <p>It listens on <code>127.0.0.1:8787</code> only, creates a database named <b>pglab</b>, and prints two links:</p>
 <ul>
-  <li><b>http://localhost:8787</b> serves this lab straight from your folder, already paired.</li>
-  <li>The <b>pairing link</b> (<code>…/learn-pg/#pair=…</code>) pairs the GitHub Pages site in this browser. You only need to do it once; the token is kept in <code>bridge/.pglab-token</code>.</li>
+  <li><b>http://localhost:8787/pg/</b> serves this lab straight from your folder, already paired.</li>
+  <li>The <b>pairing link</b> (<code>…/pg/#pair=…</code>) pairs the GitHub Pages site in this browser. You only need to do it once; the token is kept in <code>bridge/.pglab-token</code>.</li>
 </ul>
 <p>Then flip the console switch to <b>Your Postgres</b> and press <b>Load the dataset</b> (about 20 seconds). Chrome may ask to let the site “access other apps and services on this device” — that’s the page talking to the bridge on 127.0.0.1. Allow it.</p>
 ${WARN(`<p>The bridge runs any SQL it’s sent against your server, as the user in your pgpass file. That’s why it only listens on 127.0.0.1, only answers pages it knows (the GitHub Pages site, localhost, or a file opened from disk), and requires the pairing token. Keep the token private, and stop the bridge (Ctrl+C) when you’re not studying.</p>`)}

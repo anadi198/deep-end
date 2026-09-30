@@ -869,3 +869,6 @@ button.chip:hover { border-color: var(--ink-3); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .vsvg .node.blk circle { fill: #06050A; stroke: #8A849A; } }
 .vsvg .node.hl circle, .vsvg .node.hl rect { stroke: var(--v-cmp) !important; stroke-width: 4 !important; }
 .vsvg .node.cmpo circle { stroke: var(--v-cmp); stroke-width: 3; }
+
+/* Deep End: the topbar "All labs" button; on phones it lives in the ⋯ menu instead */
+@media (max-width: 520px) { .home-btn { display: none !important; } }

@@ -10,20 +10,20 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import pgpass from 'pgpass';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
-const APP_ROOT = normalize(join(HERE, '..'));
+const SITE_ROOT = normalize(join(HERE, '..', '..')); // the Deep End folder: the lab page loads ../shared/
 const PORT = Number(process.env.PGLAB_PORT || 8787);
 const DATABASE = process.env.PGLAB_DATABASE || 'pglab';
-const PAGES_URL = process.env.PGLAB_PAGES_URL || 'https://anadi198.github.io/learn-pg/';
+const PAGES_URL = process.env.PGLAB_PAGES_URL || 'https://anadi198.github.io/pg/';
 const ORIGINS = new Set([
   new URL(PAGES_URL).origin,
   `http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`,
-  'http://localhost:8765', 'http://127.0.0.1:8765',
+  'http://localhost:8767', 'http://127.0.0.1:8767',
   'null', // index.html opened straight from disk
   ...(process.env.PGLAB_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
 ]);
@@ -141,14 +141,17 @@ const server = http.createServer(async (req, res) => {
 
   if (!url.pathname.startsWith('/api/')) { // static app files, so http://localhost:PORT works too
     if (req.method !== 'GET') { res.writeHead(405).end(); return; }
-    const path = normalize(join(APP_ROOT, url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname)));
-    const rel = path.slice(APP_ROOT.length).split(/[\\/]/).filter(Boolean);
-    if (!path.startsWith(APP_ROOT) || rel[0] === 'bridge' || rel.some((seg) => seg.startsWith('.'))) { res.writeHead(404).end(); return; }
+    const path = normalize(join(SITE_ROOT, decodeURIComponent(url.pathname).replace(/\/$/, '/index.html')));
+    const rel = path.slice(SITE_ROOT.length).split(/[\\/]/).filter(Boolean);
+    if (!path.startsWith(SITE_ROOT + sep) || rel.some((seg) => seg.startsWith('.') || ['runner', 'bridge', 'tools', 'node_modules'].includes(seg))) { res.writeHead(404).end(); return; }
     try {
       const data = await readFile(path);
       res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'application/octet-stream', 'cache-control': 'no-store' });
       res.end(data);
-    } catch { res.writeHead(404).end('not found'); }
+    } catch (e) {
+      if (e.code === 'EISDIR') res.writeHead(301, { location: url.pathname + '/' }).end();
+      else res.writeHead(404).end('not found');
+    }
     return;
   }
 
@@ -191,7 +194,7 @@ try {
 }
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`\nPostgres Lab bridge → PostgreSQL ${SERVER_VERSION} at ${base.host}:${base.port}, database "${DATABASE}"`);
-  console.log(`\n  Use it here:        http://localhost:${PORT}`);
+  console.log(`\n  Use it here:        http://localhost:${PORT}/pg/`);
   console.log(`  Or pair the site:   ${PAGES_URL}#pair=${TOKEN}`);
   console.log('\nKeep this window open while you use "Your Postgres" in the lab. Ctrl+C stops it.\n');
 });

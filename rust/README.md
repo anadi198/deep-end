@@ -10,17 +10,23 @@ The bar is reading and reviewing Rust, not writing it fluently. The compiler alr
 * Exercises: **fix** (make it compile or pass), **build** (write it), **review** (an AI-written PR: click the lines you would comment on and pick the hunt).
 * A 5-minute daily review brings remember lines, cues and predicts back at growing intervals.
 
+**Site:** https://anadi198.github.io/rust/ (part of [Deep End](../README.md))
+
 Code runs on the official [Rust Playground](https://play.rust-lang.org/), which accepts requests from any page, so there is nothing to install.
 
 ## Run it locally
+
+From the Deep End folder:
 
 ```bash
 node serve.mjs
 ```
 
-Then open http://localhost:8769.
+Then open http://localhost:8767/rust/.
 
 ## Check the content
+
+From this folder:
 
 ```bash
 node --test test/
@@ -36,12 +42,4 @@ The content format is described at the top of `content/_core.js`.
 
 ## Deploying, and cloud sync
 
-GitHub Pages deploys through `.github/workflows/pages.yml` (Settings → Pages → Source: GitHub Actions).
-
-Cloud sync needs a Firebase web config, and that config is never committed:
-
-* On Pages, the workflow writes `sync-config.js` from the `LAB_FIREBASE` repository secret (Settings → Secrets and variables → Actions). Paste the `firebaseConfig` object from the Firebase console as the secret's value.
-* Locally, copy `sync-config.example.js` to `sync-config.js` (gitignored) and fill it in.
-* Without either, the lab works and sync stays off.
-
-`firestore.rules` only lets one account read or write; put your Firebase user id in place of `OWNER_UID` in the console copy before publishing.
+Both are shared by every lab: see the [Deep End README](../README.md).

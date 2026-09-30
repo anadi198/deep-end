@@ -8,7 +8,7 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Postgres Lab — learn PostgreSQL by running it">
 <meta property="og:description" content="A real Postgres 18 in your browser, 34 lessons and 58 auto-checked exercises: query plans, indexing, locking, schema design and more. Free, nothing to install.">
-<meta property="og:url" content="https://anadi198.github.io/learn-pg/">
+<meta property="og:url" content="https://anadi198.github.io/pg/">
 <meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#EEF1F4" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0D1217" media="(prefers-color-scheme: dark)">
@@ -24,6 +24,7 @@
 <div class="app" id="app" data-tab="lesson">
   <header class="topbar">
     <button class="btn quiet icon-btn" id="navToggle" aria-label="Show or hide the lesson list" title="Show or hide the lesson list">☰</button>
+    <a class="btn quiet icon-btn home-btn" href="../" title="All labs" aria-label="All labs"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg></a>
     <div class="brand"><b>Postgres<span>Lab</span></b><small>learn PostgreSQL by running it</small></div>
     <div class="spacer"></div>
     <div class="dbchip" id="dbchip" title="Database status"><i class="dot busy" id="dbdot"></i><span id="dbtext">Starting Postgres…</span></div>
@@ -75,9 +76,9 @@
 <script src="outputs.js"></script>
 <script src="course.js"></script>
 <script src="course2.js"></script>
-<script src="syncmerge.js"></script>
-<script src="sync-config.js"></script>
-<script src="sync.js"></script>
+<script src="../shared/syncmerge.js"></script>
+<script src="../shared/sync-config.js"></script>
+<script src="../shared/sync.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

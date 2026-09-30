@@ -290,9 +290,9 @@
         <p class="lede">Everything works in the browser with no setup. These three extras are optional.</p>
         <div class="prose">
           <h2 style="border:0;padding-top:0">1. Your JDK runner ${pill(l.state === 'ready', l.state === 'ready' ? 'connected' : l.state === 'unpaired' ? 'not paired' : 'not running')}</h2>
-          <p>Needed for the concurrency exercises (real threads) and for Claude reviews. Needs a JDK 17+ and Node.js 18+. From the <code>learn-lld</code> folder:</p>
-          ${A.codeBlock('node runner/server.mjs', { lang: 'text', label: 'terminal' })}
-          <p>Open the link it prints. <code>http://localhost:8789/</code> comes paired; the <code>#pair=…</code> link pairs this hosted site once.</p>
+          <p>Needed for the concurrency exercises (real threads) and for Claude reviews. Needs a JDK 17+ and Node.js 18+. From the Deep End folder:</p>
+          ${A.codeBlock('node lld/runner/server.mjs', { lang: 'text', label: 'terminal' })}
+          <p>Open the link it prints. <code>http://localhost:8789/lld/</code> comes paired; the <code>#pair=…</code> link pairs this hosted site once.</p>
           <h2>2. Claude reviews ${pill(c ? (c.found && c.loggedIn) : null, !c ? 'needs the runner' : !c.found ? 'CLI not found' : c.loggedIn ? 'ready' : 'sign in needed')}</h2>
           <p>The runner asks the Claude Code CLI (it ships with the Claude desktop app) to review your code, with every tool switched off, so a review can only return text. It uses your Claude plan. Sign the CLI in once:</p>
           ${A.codeBlock(loginCmd, { lang: 'text', label: win ? 'PowerShell' : 'terminal' })}

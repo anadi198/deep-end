@@ -15,6 +15,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = normalize(fileURLToPath(new URL('..', import.meta.url)));
+const SITE = normalize(join(ROOT, '..')); // served from the Deep End folder so the page's ../shared/ scripts resolve
 const PORT = Number(process.env.PORT || 8799);
 const TIMEOUT_MS = 6 * 60 * 1000;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json' };
@@ -45,10 +46,10 @@ const server = http.createServer(async (req, res) => {
     finish({ snippets: Object.keys(data.snippets).length, bytes: js.length, engine: data.engine });
     return;
   }
-  const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
-  const path = normalize(join(ROOT, rel));
-  if (!path.startsWith(ROOT)) { res.writeHead(403).end(); return; }
-  if (rel === 'outputs.js') { res.writeHead(200, { 'content-type': TYPES['.js'] }).end('window.PGLAB_OUTPUTS = null;'); return; }
+  const rel = url.pathname === '/' ? 'pg/index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
+  const path = normalize(join(SITE, rel));
+  if (!path.startsWith(SITE)) { res.writeHead(403).end(); return; }
+  if (rel === 'pg/outputs.js') { res.writeHead(200, { 'content-type': TYPES['.js'] }).end('window.PGLAB_OUTPUTS = null;'); return; }
   try {
     res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'application/octet-stream', 'cache-control': 'no-store' });
     res.end(await readFile(path));
@@ -60,7 +61,7 @@ const profile = mkdtempSync(join(tmpdir(), 'pglab-build-'));
 const chrome = spawn(chromePath, [
   '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-extensions',
   `--user-data-dir=${profile}`, '--enable-logging=stderr', '--v=0', '--remote-debugging-port=0',
-  `http://127.0.0.1:${PORT}/index.html?build-outputs#expectations`,
+  `http://127.0.0.1:${PORT}/pg/index.html?build-outputs#expectations`,
 ], { stdio: ['ignore', 'ignore', 'pipe'] });
 console.log(`Recording snippet outputs with ${chromePath.split(/[\\/]/).pop()} (building the dataset first, ~30 s)…`);
 let seen = 0;

@@ -116,7 +116,7 @@ const Engine = {
   worker: null, seq: 0, pending: new Map(), chain: Promise.resolve(), onProgress: null, onFatal: null,
   start() {
     const fromDisk = location.protocol === 'file:';
-    const tip = fromDisk ? ' If your browser blocks this when opening the file straight from disk, run "node serve.mjs" in the postgres-lab folder and open http://localhost:8765 instead.' : '';
+    const tip = fromDisk ? ' If your browser blocks this when opening the file straight from disk, run "node serve.mjs" in the Deep End folder and open http://localhost:8767/pg/ instead.' : '';
     try {
       // Chrome refuses blob: workers on file:// pages ("Refused to cross-origin redirects of the
       // top-level worker script"), but allows data: workers — so use data: there.
@@ -1033,7 +1033,7 @@ function showConnectCard(errorText) {
   let html;
   if (st === 'nobridge') html = `<h4>Connect the lab to your own Postgres</h4>
     ${errorText ? `<p class="err">${esc(errorText)}</p>` : ''}
-    <p>“Your Postgres” reaches PostgreSQL on this computer through a small helper called the bridge. In the <b>learn-pg</b> folder, run:</p>
+    <p>“Your Postgres” reaches PostgreSQL on this computer through a small helper called the bridge. In the <b>pg</b> folder of Deep End, run:</p>
     <pre class="cmdline">cd bridge\nnpm install      # first time only\nnpm start</pre>
     <p>It uses your pgpass file (or PGPASSWORD) and creates a database named <b>pglab</b>. Keep that window open, then press Retry. On a phone, stay on In-browser.</p>
     <div class="choices"><button class="tbtn go" data-c="retry">Retry</button><button class="tbtn" data-c="browser">Use in-browser instead</button></div>`;
@@ -1277,7 +1277,7 @@ function lessonState(l) {
 }
 function renderNav() {
   const all = ALL.flatMap(itemsOf); const done = all.filter((i) => S.done[i]).length;
-  let html = `<div class="progress"><div class="bar"><i style="width:${all.length ? (100 * done / all.length).toFixed(1) : 0}%"></i></div><p>${done} of ${all.length} exercises &amp; checks done</p></div>`;
+  let html = `<a class="all-labs" href="../">← All labs</a><div class="progress"><div class="bar"><i style="width:${all.length ? (100 * done / all.length).toFixed(1) : 0}%"></i></div><p>${done} of ${all.length} exercises &amp; checks done</p></div>`;
   COURSE.modules.forEach((m, mi) => {
     html += `<div class="mod"><h3><span class="n">${String(mi + 1).padStart(2, '0')}</span>${esc(m.title)}</h3>`;
     m.lessons.forEach((l) => {
@@ -1731,7 +1731,7 @@ function initChrome() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { Editor.refresh(); scrollBottom(); } });
   setInterval(setStatus, 30000);
 }
-// The bridge prints a link like https://…/learn-pg/#pair=TOKEN; opening it pairs this browser.
+// The bridge prints a link like https://…/pg/#pair=TOKEN; opening it pairs this browser.
 function takePairHash() {
   const m = /^#pair=([A-Za-z0-9_-]+)/.exec(location.hash);
   if (!m) return false;
