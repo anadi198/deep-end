@@ -29,6 +29,7 @@
     <div class="dbchip" id="dbchip" title="Database status"><i class="dot busy" id="dbdot"></i><span id="dbtext">Starting Postgres…</span></div>
     <button class="btn" id="saveBtn" title="Save the current database (including your tables and indexes) to this browser" disabled>Save snapshot</button>
     <button class="btn quiet" id="resetBtn" title="Restore or rebuild the database">Reset ▾</button>
+    <button class="btn quiet sync-chip" id="syncChip" hidden></button>
     <button class="btn quiet icon-btn" id="themeBtn" title="Toggle light/dark" aria-label="Toggle light or dark theme">◐</button>
   </header>
 
@@ -74,6 +75,9 @@
 <script src="outputs.js"></script>
 <script src="course.js"></script>
 <script src="course2.js"></script>
+<script src="syncmerge.js"></script>
+<script src="sync-config.js"></script>
+<script src="sync.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

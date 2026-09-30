@@ -603,3 +603,10 @@ li.CodeMirror-hint-active { background: var(--term-accent); color: var(--term-bg
 .cb-out .out:empty { padding: 0 14px 4px; }
 .cb-out .out .echo { color: var(--term-violet); margin-top: 10px; white-space: pre-wrap; word-break: break-word; }
 .cb-out .out .echo:first-child { margin-top: 2px; }
+
+/* cloud sync */
+.sync-chip.synced { color: var(--good); }
+.sync-chip.error { color: var(--bad); }
+.sync-chip.signed-out { color: var(--accent); }
+.pop .sync-who { padding: 8px 10px; font-size: 13px; color: var(--ink-2); }
+@media (max-width: 520px) { .sync-chip { max-width: 38px; overflow: hidden; white-space: nowrap; } }

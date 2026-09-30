@@ -8,9 +8,12 @@ const COURSE = window.PGLAB_COURSE;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const SYNCED = new Set(['done', 'visited', 'history']);   // see Cloud sync, near the end
+const syncListeners = new Set();
 const store = {
   get(k, d) { try { const v = localStorage.getItem('pglab.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('pglab.' + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+  set(k, v) { store.put(k, v); if (SYNCED.has(k)) for (const f of syncListeners) f(); },
+  put(k, v) { try { localStorage.setItem('pglab.' + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
 };
 const fmtInt = (n) => Number(n).toLocaleString('en-US');
 const fmtMs = (ms) => ms < 1 ? ms.toFixed(3) : ms < 100 ? ms.toFixed(2) : ms.toFixed(0);
@@ -1777,6 +1780,63 @@ function openResetMenu(anchor) {
     }
     if (e.target.closest('[data-no]')) pop.remove();
     if (e.target.closest('[data-go]') && pick) { pop.remove(); restartEngine(pick); }
+  });
+}
+
+/* ─────────────────────────── Cloud sync ─────────────────────────── */
+// Only lesson progress and query history travel between devices (sync.js + syncmerge.js). The bridge
+// pairing token, the engine choice and the saved databases never leave this browser.
+const SYNC = { done: 'max', visited: 'max', history: 'union:150' };
+const syncState = () => ({ v: 1, done: S.done, visited: S.visited, history: S.history });
+function applyCloud(remote) {
+  if (!remote || remote.v !== 1) return false;
+  const mine = syncState();
+  const merged = window.SyncMerge.merge(mine, remote, SYNC);
+  if (!window.SyncMerge.changed(mine, merged, SYNC)) return false;
+  S.done = merged.done; S.visited = merged.visited; S.history = merged.history;
+  store.put('done', S.done); store.put('visited', S.visited); store.put('history', S.history);
+  renderNav();
+  return true;
+}
+function paintSync(st) {
+  const chip = $('#syncChip'); if (!chip) return;
+  if (!window.LabSync || !window.LabSync.configured()) { chip.hidden = true; return; }
+  chip.hidden = false;
+  chip.className = 'btn quiet sync-chip ' + st.state;
+  chip.textContent = st.state === 'synced' ? '☁ Synced' : st.state === 'syncing' ? '☁ Syncing…' : st.state === 'error' ? '☁ Sync problem' : '☁ Sign in to sync';
+  chip.title = st.state === 'synced' ? `Signed in as ${st.email || ''}. Last synced ${ago(st.at)}.` : st.error || 'Keep lesson progress and query history on every device';
+}
+function openSyncMenu(anchor) {
+  const old = $('.pop'); if (old) { old.remove(); return; }
+  const L = window.LabSync, st = L.status();
+  const pop = document.createElement('div'); pop.className = 'pop';
+  const r = anchor.getBoundingClientRect();
+  pop.style.top = (r.bottom + 6) + 'px'; pop.style.right = Math.max(16, window.innerWidth - r.right) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', function off(ev) { if (!pop.contains(ev.target) && ev.target !== anchor) { pop.remove(); document.removeEventListener('pointerdown', off); } }), 0);
+  pop.innerHTML = st.email
+    ? `<div class="sync-who">Signed in as <b>${esc(st.email)}</b>${st.at ? ' · synced ' + ago(st.at) : ''}</div>${st.error ? `<div class="confirm"><p>${esc(st.error)}</p></div>` : ''}
+       <button class="item" data-k="now"><b>Sync now</b><span>Lesson progress and query history</span></button>
+       <button class="item" data-k="out"><b>Sign out</b><span>This browser keeps its copy</span></button>`
+    : `<button class="item" data-k="in"><b>Sign in with Google</b><span>Keep lesson progress and query history in step across your devices. Your databases stay in this browser.</span></button>`;
+  document.body.appendChild(pop);
+  pop.addEventListener('click', (e) => {
+    const it = e.target.closest('.item'); if (!it) return;
+    pop.remove();
+    if (it.dataset.k === 'in') L.signIn();
+    if (it.dataset.k === 'now') L.syncNow();
+    if (it.dataset.k === 'out') L.signOut();
+  });
+}
+if (window.LabSync) {
+  const chip = $('#syncChip');
+  if (chip) chip.onclick = (e) => { if (window.LabSync.status().state === 'signed-out') window.LabSync.signIn(); else openSyncMenu(e.currentTarget); };
+  window.LabSync.onStatus(paintSync);
+  window.LabSync.init({
+    lab: 'pg',
+    getState: syncState,
+    merge: (a, b) => window.SyncMerge.merge(a, b, SYNC),
+    apply: applyCloud,
+    subscribe: (fn) => syncListeners.add(fn),
   });
 }
 
