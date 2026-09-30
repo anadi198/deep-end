@@ -1,0 +1,30 @@
+{
+ "two": {
+  "success": false,
+  "exitDetail": "Exited with status 101",
+  "stdout": "",
+  "stderr": "   Compiling playground v0.0.1 (/playground)\nerror[E0382]: borrow of moved value: `s`\n --> src/main.rs:5:16\n  |\n3 |     let s = String::from(\"MSH\");\n  |         - move occurs because `s` has type `String`, which does not implement the `Copy` trait\n4 |     let t = s;\n  |             - value moved here\n5 |     println!(\"{s}\");\n  |                ^ value borrowed here after move\n  |\nhelp: consider cloning the value if the performance cost is acceptable\n  |\n4 |     let t = s.clone();\n  |              ++++++++\n\nerror[E0502]: cannot borrow `v` as mutable because it is also borrowed as immutable\n --> src/main.rs:8:5\n  |\n7 |     let first = &v[0];\n  |                  - immutable borrow occurs here\n8 |     v.push(4);\n  |     ^^^^^^^^^ mutable borrow occurs here\n9 |     println!(\"{first} {t}\");\n  |                ----- immutable borrow later used here\n\nwarning: unused variable: `unused`\n --> src/main.rs:2:9\n  |\n2 |     let unused = 5;\n  |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_unused`\n  |\n  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nSome errors have detailed explanations: E0382, E0502.\nFor more information about an error, try `rustc --explain E0382`.\nwarning: `playground` (bin \"playground\") generated 1 warning\nerror: could not compile `playground` (bin \"playground\") due to 2 previous errors; 1 warning emitted\n"
+ },
+ "clippy": {
+  "success": true,
+  "exit_detail": "Exited with status 0",
+  "stdout": "",
+  "stderr": "    Checking playground v0.0.1 (/playground)\nwarning: unneeded `return` statement\n --> src/main.rs:1:31\n  |\n1 | fn len(s: &String) -> usize { return s.len(); }\n  |                               ^^^^^^^^^^^^^^\n  |\n  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_return\n  = note: `#[warn(clippy::needless_return)]` on by default\nhelp: remove `return`\n  |\n1 - fn len(s: &String) -> usize { return s.len(); }\n1 + fn len(s: &String) -> usize { s.len()}\n  |\n\nwarning: writing `&String` instead of `&str` involves a new object where a slice will do\n --> src/main.rs:1:11\n  |\n1 | fn len(s: &String) -> usize { return s.len(); }\n  |           ^^^^^^^\n  |\n  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#ptr_arg\n  = note: `#[warn(clippy::ptr_arg)]` on by default\nhelp: change this to\n  |\n1 - fn len(s: &String) -> usize { return s.len(); }\n1 + fn len(s: &str) -> usize { return s.len(); }\n  |\n\nwarning: `playground` (bin \"playground\") generated 2 warnings (run `cargo clippy --fix --bin \"playground\" -p playground -- ` to apply 1 suggestion)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.92s\n"
+ },
+ "panic": {
+  "success": false,
+  "exitDetail": "Exited with status 101",
+  "stdout": "before\n",
+  "stderr": "   Compiling playground v0.0.1 (/playground)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.50s\n     Running `target/debug/playground`\n\nthread 'main' (13) panicked at src/main.rs:4:14:\nindex out of bounds: the len is 0 but the index is 3\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+ },
+ "loop": {
+  "error": "The operation timed out: deadline has elapsed"
+ },
+ "loopMs": 10360,
+ "threadPanic": {
+  "success": true,
+  "exitDetail": "Exited with status 0",
+  "stdout": "crashed: true\n",
+  "stderr": "   Compiling playground v0.0.1 (/playground)\nwarning: unused variable: `unused`\n --> src/main.rs:3:9\n  |\n3 |     let unused = 1;\n  |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_unused`\n  |\n  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nwarning: `playground` (bin \"playground\") generated 1 warning (run `cargo fix --bin \"playground\" -p playground` to apply 1 suggestion)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.55s\n     Running `target/debug/playground`\n\nthread '<unnamed>' (42) panicked at src/main.rs:4:77:\nindex out of bounds: the len is 0 but the index is 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\ndone\n"
+ }
+}
