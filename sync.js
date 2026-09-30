@@ -19,6 +19,9 @@
   const MAX_BYTES = 900 * 1024;   // Firestore's hard limit is 1 MiB per document
 
   let opts = null, fb = null, user = null, pushTimer = null, pushing = false, again = false;
+  // sync-config.js either sets window.LAB_FIREBASE or is the snippet pasted from the Firebase console
+  // ("const firebaseConfig = { ... };"), which declares a global binding instead of a window property.
+  const config = () => window.LAB_FIREBASE || (typeof firebaseConfig !== 'undefined' ? firebaseConfig : null);
   const status = { state: 'off', at: 0, error: null, email: null };
   const listeners = new Set();
   const emit = () => { for (const f of listeners) try { f({ ...status }); } catch { /* ignore */ } };
@@ -31,7 +34,7 @@
     const [app, auth, fs] = await Promise.all([
       import(`${CDN}/firebase-app.js`), import(`${CDN}/firebase-auth.js`), import(`${CDN}/firebase-firestore-lite.js`),
     ]);
-    const a = app.initializeApp(window.LAB_FIREBASE);
+    const a = app.initializeApp(config());
     fb = { app, auth, fs, A: auth.getAuth(a), db: fs.getFirestore(a) };
     fb.auth.onAuthStateChanged(fb.A, async (u) => {
       user = u;
@@ -102,7 +105,7 @@
   }
 
   const api = {
-    configured: () => !!(window.LAB_FIREBASE && window.LAB_FIREBASE.apiKey),
+    configured: () => !!(config() && config().apiKey),
     status: () => ({ ...status }),
     onStatus(fn) { listeners.add(fn); fn({ ...status }); return () => listeners.delete(fn); },
     async init(o) {
