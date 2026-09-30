@@ -227,7 +227,7 @@
       <button class="item" data-m="import"><b>Import progress</b><span>Paste progress exported from another device</span></button>
       <hr>
       <a class="item" href="../"><b>All labs</b><span>Back to Deep End</span></a>
-      <a class="item" href="https://github.com/anadi198/anadi198.github.io/tree/main/lld" target="_blank" rel="noopener"><b>Source on GitHub</b><span>anadi198/anadi198.github.io, folder lld</span></a>
+      <a class="item" href="https://github.com/anadi198/deep-end/tree/main/lld" target="_blank" rel="noopener"><b>Source on GitHub</b><span>anadi198/deep-end, folder lld</span></a>
       <hr>
       <button class="item" data-m="reset"><b>Reset all progress…</b><span>Clears exercises, drafts, reviews and cards in this browser</span></button>`,
     (m) => {

@@ -19,7 +19,7 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const SITE_ROOT = normalize(join(HERE, '..', '..')); // the Deep End folder: the lab page loads ../shared/
 const PORT = Number(process.env.PGLAB_PORT || 8787);
 const DATABASE = process.env.PGLAB_DATABASE || 'pglab';
-const PAGES_URL = process.env.PGLAB_PAGES_URL || 'https://anadi198.github.io/pg/';
+const PAGES_URL = process.env.PGLAB_PAGES_URL || 'https://anadi198.github.io/deep-end/pg/';
 const ORIGINS = new Set([
   new URL(PAGES_URL).origin,
   `http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`,

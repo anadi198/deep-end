@@ -221,7 +221,7 @@
       <hr>
       <button class="item" data-m="engine"><b>Engines &amp; setup</b><span>In-browser Java vs your own JDK</span></button>
       <a class="item" href="../"><b>All labs</b><span>Back to Deep End</span></a>
-      <a class="item" href="https://github.com/anadi198/anadi198.github.io/tree/main/dsa" target="_blank" rel="noopener"><b>Source on GitHub</b><span>anadi198/anadi198.github.io, folder dsa</span></a>
+      <a class="item" href="https://github.com/anadi198/deep-end/tree/main/dsa" target="_blank" rel="noopener"><b>Source on GitHub</b><span>anadi198/deep-end, folder dsa</span></a>
       <hr>
       <button class="item" data-m="reset"><b>Reset all progress…</b><span>Clears solved problems, drafts and reviews in this browser</span></button>`,
     (m) => {

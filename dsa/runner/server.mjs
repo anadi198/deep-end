@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const SITE_ROOT = normalize(join(HERE, '..', '..')); // the Deep End folder: the lab page loads ../shared/
 const PORT = Number(process.env.DSALAB_PORT || 8788);
-const PAGES_URL = process.env.DSALAB_PAGES_URL || 'https://anadi198.github.io/dsa/';
+const PAGES_URL = process.env.DSALAB_PAGES_URL || 'https://anadi198.github.io/deep-end/dsa/';
 const ORIGINS = new Set([
   new URL(PAGES_URL).origin,
   `http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`,

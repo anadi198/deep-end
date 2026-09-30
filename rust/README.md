@@ -10,7 +10,7 @@ The bar is reading and reviewing Rust, not writing it fluently. The compiler alr
 * Exercises: **fix** (make it compile or pass), **build** (write it), **review** (an AI-written PR: click the lines you would comment on and pick the hunt).
 * A 5-minute daily review brings remember lines, cues and predicts back at growing intervals.
 
-**Site:** https://anadi198.github.io/rust/ (part of [Deep End](../README.md))
+**Site:** https://anadi198.github.io/deep-end/rust/ (part of [Deep End](../README.md))
 
 Code runs on the official [Rust Playground](https://play.rust-lang.org/), which accepts requests from any page, so there is nothing to install.
 

@@ -2,7 +2,7 @@
 
 Interview prep in Java, organized by pattern. There are 18 modules, 36 lessons, 170 original problems with tests, 74 step-by-step visualizations, and cheat sheets. That includes a *Which Java collection?* flowchart (the Java counterpart to the classic STL container chart) and a pattern finder. Solutions are graded by a real Java compiler, either in your browser or on your own JDK.
 
-**Site:** https://anadi198.github.io/dsa/ (part of [Deep End](../README.md))
+**Site:** https://anadi198.github.io/deep-end/dsa/ (part of [Deep End](../README.md))
 
 What's in each module:
 
@@ -36,7 +36,7 @@ node dsa/runner/server.mjs
 It prints two links:
 
 - `http://localhost:8788/dsa/` serves the lab from this folder, already paired.
-- `https://anadi198.github.io/dsa/#pair=…` pairs the hosted site in this browser. You only need it once.
+- `https://anadi198.github.io/deep-end/dsa/#pair=…` pairs the hosted site in this browser. You only need it once.
 
 Then choose **Your JDK** in the code panel. Configure it with `DSALAB_PORT` (default `8788`) and `DSALAB_PAGES_URL`.
 

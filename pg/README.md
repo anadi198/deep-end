@@ -2,7 +2,7 @@
 
 A hands-on PostgreSQL course that runs a real PostgreSQL 18 in your browser. It has 10 modules, 58 auto-checked exercises, quizzes, and live concurrency scenarios, all on a realistic ~2.35M-row e-commerce dataset. It covers SQL beyond joins, reading query plans, indexing, transactions and locking, schema design, running Postgres in production, and interview practice. Nothing to install: open the site and start typing SQL.
 
-**Site:** https://anadi198.github.io/pg/ (part of [Deep End](../README.md))
+**Site:** https://anadi198.github.io/deep-end/pg/ (part of [Deep End](../README.md))
 
 The console has two engines. Switch between them at the top of the console:
 
@@ -29,7 +29,7 @@ The console has two engines. Switch between them at the top of the console:
    ```
    It creates a database called `pglab` and prints two links:
    - `http://localhost:8787/pg/` serves the lab from this folder, already paired.
-   - The pairing link `https://anadi198.github.io/pg/#pair=…` pairs the hosted site in this browser. You only need it once.
+   - The pairing link `https://anadi198.github.io/deep-end/pg/#pair=…` pairs the hosted site in this browser. You only need it once.
 4. In the console, switch to **Your Postgres** and press **Load the dataset** (~20 s).
 
 Configure it with `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGLAB_DATABASE` (default `pglab`), `PGLAB_PORT` (default `8787`), and `PGLAB_ORIGINS` (extra allowed page origins, comma-separated).
