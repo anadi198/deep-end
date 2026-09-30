@@ -150,7 +150,10 @@ for (const x of exercises) {
         return true;
       });
     }
-    if (x.solution && x.solution.fixed) job(`review ${x.id} fixed`, 'clippy', x.solution.fixed.trim(), (o) => o.kind !== 'compile-error' || 'the fixed code does not compile\n' + o.text, H.key('clippy', x.solution.fixed.trim()));
+    if (x.solution && x.solution.fixed) {
+      const fixed = H.splitHidden(x.solution.fixed.trim()).full;
+      job(`review ${x.id} fixed`, 'clippy', fixed, (o) => o.kind !== 'compile-error' || 'the fixed code does not compile\n' + o.text, H.key('clippy', fixed));
+    }
     continue;
   }
   const n = x.tests.length;

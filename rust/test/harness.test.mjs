@@ -145,6 +145,19 @@ test('review: + marks added lines, ⟦id⟧ tags are stripped and indexed', () =
   assert.deepEqual(r.marks, { a: [3], d1: [4], b: [5] });
 });
 
+test('review: "# " lines compile but are neither shown nor numbered', () => {
+  const r = H.parseReview([
+    'use crate::tonic::Status;',
+    '+pub fn f() -> Status { Status } ⟦a⟧',
+    '# pub mod tonic {',
+    '#     pub struct Status;',
+    '# }',
+  ].join('\n'));
+  assert.deepEqual(r.lines.map((l) => [l.n, l.text]), [[1, 'use crate::tonic::Status;'], [2, 'pub fn f() -> Status { Status }']]);
+  assert.deepEqual(r.marks, { a: [2] });
+  assert.equal(r.code, 'use crate::tonic::Status;\npub fn f() -> Status { Status }\npub mod tonic {\n    pub struct Status;\n}');
+});
+
 test('review: grading finds, tag matches, false alarms and decoys', () => {
   const x = { issues: [{ id: 'a', tag: 'panic' }, { id: 'b', tag: 'swallow' }], decoys: [{ id: 'd1' }] };
   const r = H.parseReview(PR);

@@ -143,10 +143,13 @@
 
   // A review exercise's file: a leading "+" marks a line the PR added (as in a diff), and ⟦id⟧ or
   // ⟦id,id⟧ at the end of a line ties it to a planted issue or a decoy. Both are stripped.
+  // "# " lines (stand-ins for crates the Playground lacks) compile but are not shown; keep them at
+  // the end so compiler line numbers still match the shown lines.
   function parseReview(src) {
-    const lines = [], marks = {};
-    String(src).replace(/\r/g, '').replace(/^\n+|\s+$/g, '').split('\n').forEach((raw, k) => {
-      const n = k + 1;
+    const lines = [], marks = {}, full = [];
+    String(src).replace(/\r/g, '').replace(/^\n+|\s+$/g, '').split('\n').forEach((raw) => {
+      if (HIDDEN.test(raw)) { full.push(raw.replace(/^(\s*)# ?/, '$1')); return; }
+      const n = lines.length + 1;
       const added = raw.startsWith('+');
       let text = added ? raw.slice(1) : raw;
       const m = /\s*⟦([\w,-]+)⟧\s*$/.exec(text);
@@ -155,8 +158,9 @@
       text = text.replace(/\s+$/, '');
       for (const id of ids) (marks[id] || (marks[id] = [])).push(n);
       lines.push({ n, text, added, marks: ids });
+      full.push(text);
     });
-    return { code: lines.map((l) => l.text).join('\n'), lines, marks };
+    return { code: full.join('\n'), lines, marks };
   }
 
   // flags: { lineNumber: tag } → which planted issues you found, and what else you flagged
