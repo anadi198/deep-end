@@ -40,6 +40,8 @@ The first runs the harness and highlighter tests. The second sends every checked
 
 The content format is described at the top of `content/_core.js`.
 
+The Playground has no tonic, prost or mockall. Lessons that need them use small stand-ins with the same names and signatures, kept in "# " lines that compile but are not shown (in lesson snippets and in review PRs alike), and say so where they are used.
+
 ## Deploying, and cloud sync
 
 Both are shared by every lab: see the [Deep End README](../README.md).

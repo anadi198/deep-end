@@ -210,5 +210,94 @@
         - «macro_rules!» or procedural macros.
       `,
     },
+    {
+      id: 'crates', title: 'Crates, serde, protobuf and gRPC at a glance', kind: 'Reading',
+      blurb: 'Cargo.toml, visibility, the macros to stop at, serde attributes, what prost generates, tonic status codes and test attributes, on one page.',
+      lede: 'For the code around the logic: the manifest, the generated types, the wire and the tests.',
+      body: R`
+        ## Cargo.toml
+
+        | You see | Means |
+        |---|---|
+        | «tokio = "1.38"» | 1.38 or any later 1.x; «Cargo.lock» pins the exact version |
+        | «tonic = "0.12"» | 0.12.x only: 0.13 is a breaking upgrade |
+        | «features = [...]» | switches that add code, shared by the whole build |
+        | «optional = true», «"dep:name"» | a dependency only a feature pulls in |
+        | «default-features = false» | drop the crate's default features; list the ones you need |
+        | «[dev-dependencies]» | tests, examples and benchmarks only |
+        | «build.rs», «[build-dependencies]» | runs on the build machine at compile time |
+        | "configured out" in a compiler error | a feature is off: the fix is in «Cargo.toml» |
+
+        ## Visibility
+
+        | Written | Who can use it |
+        |---|---|
+        | nothing | this module and the modules inside it |
+        | «pub(super)» | the parent module too |
+        | «pub(crate)» | the whole crate, never another crate |
+        | «pub» | everyone |
+        | «pub use a::B» | re-export: «B» is also reachable here |
+
+        ## Macros to stop at
+
+        | Macro | Why |
+        |---|---|
+        | «todo!», «unimplemented!», «unreachable!» | panics if the line runs |
+        | «debug_assert!» | compiled out of release builds |
+        | «dbg!» | debugging left in: prints to stderr |
+        | «?body» in a log macro, «#[instrument]» without «skip» | logs whole values, message bodies included |
+
+        ## serde
+
+        | Default or attribute | Effect |
+        |---|---|
+        | missing field | error, unless «Option» or a default |
+        | unknown field | ignored, unless «#[serde(deny_unknown_fields)]» |
+        | number out of range | error (unlike «as», it never truncates) |
+        | «#[serde(default)]» on the struct | every missing field defaults, required ones included |
+        | «#[serde(default = "f")]» on a field | missing means «f()» |
+        | «#[serde(untagged)]» | first variant that fits wins: strictest first |
+        | «.unwrap_or_default()» after parsing | a broken message becomes an empty one, silently |
+
+        ## What prost generates
+
+        | .proto | Rust | Not sent |
+        |---|---|---|
+        | «string», numbers, «bool», «bytes» | «String», «i64», «bool», «Vec<u8>» | «""», 0, «false», empty |
+        | a message field | «Option<T>» | «None» |
+        | an enum field | «i32», plus a getter | 0; the getter maps unknown values to the default variant |
+        | «optional» scalar | «Option<T>» | «None» |
+        | «repeated», «map» | «Vec<T>», «HashMap<K, V>» | empty |
+        | «oneof» | «Option<an enum>» | «None» |
+
+        Read enums with «Kind::try_from(raw)», and convert generated types into your own once, at the boundary.
+
+        ## tonic
+
+        | Status | Tells the caller |
+        |---|---|
+        | «invalid_argument» | the request is wrong: do not retry |
+        | «not_found» | it does not exist |
+        | «unavailable» | a passing problem: retry with backoff |
+        | «deadline_exceeded» | too slow; it may have happened anyway |
+        | «internal» | a bug on this side |
+
+        - Client calls: «Endpoint::timeout», «connect_timeout», or «request.set_timeout». Without them a call waits as long as the server takes.
+        - Status messages: no internal error text. Log the detail, send something the caller can act on.
+        - Server streams: a bounded channel plus «ReceiverStream»; stop the producer when «send» fails.
+
+        ## Tests
+
+        | You see | Means |
+        |---|---|
+        | «#[cfg(test)] mod tests» | unit tests; can reach private items |
+        | «#[tokio::test(start_paused = true)]» | async test with a clock that jumps ahead |
+        | «#[should_panic(expected = "...")]» | passes only if it panics with that text |
+        | «#[ignore]» | skipped unless run with «-- --ignored» |
+        | mockall «.withf(..)», «.times(n)» | which arguments, how many calls; without them, any |
+
+        A test proves only what it asserts: no assert, or «let _ =» on the result, proves only "it did not panic".
+      `,
+    },
   );
 })(typeof globalThis !== 'undefined' ? globalThis : this);
