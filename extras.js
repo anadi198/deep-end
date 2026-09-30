@@ -412,5 +412,43 @@
     });
   };
 
+  /* ───────────── Cloud sync ───────────── */
+  const syncChip = $('#syncChip');
+  const agoText = (t) => { const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`; };
+  function paintSync(st) {
+    if (!syncChip) return;
+    if (!window.LabSync || !window.LabSync.configured()) { syncChip.hidden = true; return; }
+    syncChip.hidden = false;
+    syncChip.className = 'chip sync ' + st.state;
+    syncChip.textContent = st.state === 'synced' ? '☁ Synced' : st.state === 'syncing' ? '☁ Syncing…' : st.state === 'error' ? '☁ Sync problem' : '☁ Sign in to sync';
+    syncChip.title = st.state === 'synced' ? `Signed in as ${st.email || ''}. Last synced ${agoText(st.at)}.` : st.error || 'Keep your progress on every device';
+  }
+  PAGES.syncPanel = () => {
+    const L = window.LabSync;
+    if (!L || !L.configured()) {
+      A.modal('Cloud sync', '<p>Not configured on this copy. The deploy workflow writes the config from the <code>LAB_FIREBASE</code> repository secret; for a local copy, fill in <code>sync-config.example.js</code> and save it as <code>sync-config.js</code> (gitignored).</p>');
+      return;
+    }
+    const st = L.status();
+    const body = st.email
+      ? `<p>Signed in as <b>${esc(st.email)}</b>${st.at ? ` · last synced ${agoText(st.at)}` : ''}.</p>`
+      : '<p>Sign in with Google to keep solved problems, drafts, review schedules and drill stats in step across your devices. Only your account can read them.</p>';
+    const err = st.error ? `<p style="color:var(--bad)">${esc(st.error)}</p>` : '';
+    A.modal('Cloud sync', body + err, st.email
+      ? [{ label: 'Sync now', primary: true, fn: () => { L.syncNow(); } }, { label: 'Sign out', fn: () => { L.signOut(); } }]
+      : [{ label: 'Sign in with Google', primary: true, fn: () => { L.signIn(); } }]);
+  };
+  if (syncChip) syncChip.onclick = () => { const st = window.LabSync && window.LabSync.status(); if (st && st.state === 'signed-out') window.LabSync.signIn(); else PAGES.syncPanel(); };
+  if (window.LabSync) {
+    window.LabSync.onStatus(paintSync);
+    window.LabSync.init({
+      lab: 'dsa',
+      getState: () => A.syncState(),
+      merge: (a, b) => A.syncMerge(a, b),
+      apply: (cloud) => A.applyCloud(cloud),
+      subscribe: (fn) => A.listeners.add(fn),
+    });
+  }
+
   A.start();
 })();

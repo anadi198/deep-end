@@ -14,9 +14,25 @@
   const blank = () => ({ v: 1, solved: {}, tries: {}, drafts: {}, hints: {}, seen: {}, read: {}, review: {}, quiz: {}, custom: {}, open: {}, engine: 'browser', drill: { n: 0, right: 0, streak: 0, best: 0, by: {} }, days: {}, last: null });
   let S;
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch { S = blank(); }
-  const save = debounce(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* full or blocked */ } }, 250);
-  const saveNow = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* ignore */ } };
-  window.addEventListener('beforeunload', saveNow);
+  const listeners = new Set();   // cloud sync hears about every save
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* full or blocked */ } };
+  const save = debounce(() => { persist(); for (const f of listeners) f(); }, 250);
+  const saveNow = () => { persist(); for (const f of listeners) f(); };
+  window.addEventListener('beforeunload', persist);
+
+  /* Cloud sync (sync.js + syncmerge.js): the fields that travel between devices, and how two copies
+   * merge. Anything not listed (engine, open sections, a mock in progress) stays on this device. */
+  const SYNC = { solved: 'byAt:at', review: 'byAt:last', tries: 'max', hints: 'max', seen: 'max', read: 'max', days: 'max', quiz: 'fill', drafts: 'fill', custom: 'fill', drill: 'moreN' };
+  function applyCloud(remote) {
+    if (!remote || remote.v !== 1) return false;
+    const merged = window.SyncMerge.merge(S, remote, SYNC);
+    if (!window.SyncMerge.changed(S, merged, SYNC)) return false;
+    Object.assign(S, merged);
+    persist();
+    renderNav(); renderChips();
+    if (ROUTE.view === 'page' || ROUTE.view === 'home') route();
+    return true;
+  }
 
   /* ───────────── Content index ───────────── */
   const MODS = D.modules;
@@ -201,6 +217,7 @@
     popover(e.currentTarget, `
       <button class="item" data-m="export"><b>Export progress</b><span>Copy your progress as text, to move it to another device</span></button>
       <button class="item" data-m="import"><b>Import progress</b><span>Paste progress exported from another device</span></button>
+      <button class="item" data-m="sync"><b>Cloud sync</b><span>Keep progress in step across your devices</span></button>
       <hr>
       <button class="item" data-m="engine"><b>Engines &amp; setup</b><span>In-browser Java vs your own JDK</span></button>
       <a class="item" href="https://github.com/anadi198/learn-dsa" target="_blank" rel="noopener"><b>Source on GitHub</b><span>anadi198/learn-dsa</span></a>
@@ -213,6 +230,7 @@
         catch (err) { toast('Could not import: ' + err.message); return false; }
       } }]);
       if (m === 'engine') engineHelp();
+      if (m === 'sync' && PAGES.syncPanel) PAGES.syncPanel();
       if (m === 'reset') modal('Reset all progress?', '<p>This clears solved problems, code drafts, hints, quiz answers and review schedules in this browser. It cannot be undone (export first if unsure).</p>', [{ label: 'Reset everything', danger: true, fn: () => { S = blank(); saveNow(); location.hash = '#/'; location.reload(); } }]);
     });
   };
@@ -1042,6 +1060,7 @@
     S, save, saveNow, md, inline, esc, codeBlock, problemList, lcList, quizHtml, enhance, toast, modal, popover,
     PROBLEM, LESSON, MOD, MODS, ITEMS, ALL_PROBLEMS, PAGES, ENHANCERS, isSolved, dueList, schedule, modStats, markDay,
     route, renderNav, renderChips, relLabel, get CUR() { return CUR; }, get state() { return S; },
+    listeners, applyCloud, syncState: () => window.SyncMerge.pick(S, SYNC), syncMerge: (a, b) => window.SyncMerge.merge(a, b, SYNC),
   };
   initEditor();
   renderEngine();

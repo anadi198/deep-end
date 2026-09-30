@@ -869,3 +869,9 @@ button.chip:hover { border-color: var(--ink-3); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .vsvg .node.blk circle { fill: #06050A; stroke: #8A849A; } }
 .vsvg .node.hl circle, .vsvg .node.hl rect { stroke: var(--v-cmp) !important; stroke-width: 4 !important; }
 .vsvg .node.cmpo circle { stroke: var(--v-cmp); stroke-width: 3; }
+
+/* cloud sync chip */
+.chip.sync.synced { color: var(--good); }
+.chip.sync.error { color: var(--bad); }
+.chip.sync.signed-out { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--rule)); }
+@media (max-width: 520px) { .chip.sync { max-width: 34px; overflow: hidden; white-space: nowrap; flex: none; } }
