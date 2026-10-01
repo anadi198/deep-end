@@ -1,113 +1,9 @@
 (function (root) {
   const RL = root.RL, R = RL.R;
   RL.module({
-    id: 'traits', title: 'Enums and traits: sealed types and interfaces', short: 'Traits',
-    blurb: 'Enums that carry data (and why a new variant should break the build), traits as interfaces, generics versus «dyn», and the «From», «Into» and «Display» conversions you meet everywhere.',
+    id: 'traits', title: 'Traits and generics', short: 'Traits',
+    blurb: 'Traits as interfaces, the formal syntax of traits, bounds and generics, generics versus «dyn», the standard traits and what each promises, and the «From», «Into» and «Display» conversions.',
     items: [
-      {
-        lesson: 'tr-enums', title: 'Enums carry data: a sealed interface in one line', mins: 7, hunts: ['logic'],
-        remember: 'A Rust enum is a closed set of variants that can each carry their own data, like a sealed interface with records, and «match» must handle every variant.',
-        cue: 'A PR adds an enum variant → look at every «match» on that enum; a «_ =>» arm swallows the new variant with no compile error',
-        body: R`
-          :::vs The same closed set of outcomes
-          ~~~java
-          sealed interface Ack permits Accept, Error, Reject {}
-          record Accept() implements Ack {}
-          record Error(String text) implements Ack {}
-          record Reject(int code) implements Ack {}
-          ~~~
-          ~~~rust
-          enum Ack {
-              Accept,
-              Error(String),
-              Reject { code: u16 },
-          }
-          ~~~
-          :::
-
-          A variant can carry nothing («Accept»), a tuple of values («Error(String)») or named fields («Reject { code }»). «match» takes the data back out:
-
-          ~~~rust !run
-          enum Ack {
-              Accept,
-              Error(String),
-              Reject { code: u16 },
-          }
-
-          fn describe(a: &Ack) -> String {
-              match a {
-                  Ack::Accept => "AA".to_string(),
-                  Ack::Error(text) => format!("AE: {text}"),
-                  Ack::Reject { code } => format!("AR {code}"),
-              }
-          }
-
-          fn main() {
-              for a in [Ack::Accept, Ack::Error("bad PID".into()), Ack::Reject { code: 207 }] {
-                  println!("{}", describe(&a));
-              }
-          }
-          ~~~
-
-          @stop
-
-          ## A new variant breaks the build, on purpose
-
-          @predict 0
-
-          That compile error is the best thing about enums: adding a case forces every decision about it to be looked at again. Unless someone wrote a catch-all:
-
-          ~~~rust !run
-          enum Ack {
-              Accept,
-              Error(String),
-              Timeout,
-          }
-
-          fn describe(a: &Ack) -> &str {
-              match a {
-                  Ack::Accept => "AA",
-                  _ => "AE",
-              }
-          }
-
-          fn main() {
-              let _ = Ack::Error(String::new());
-              println!("{}", describe(&Ack::Timeout));
-          }
-          ~~~
-
-          It compiles, and a timeout is now reported as an application error. Maybe that is right. The point is that nobody decided.
-
-          ## «Option» and «Result» are just enums
-
-          ~~~rust
-          enum Option<T> { None, Some(T) }
-          enum Result<T, E> { Ok(T), Err(E) }
-          ~~~
-
-          Everything from module 04 is ordinary enum matching. «matches!(x, Ack::Accept)» is a shorthand that returns «true» or «false».
-
-          @quiz 0
-        `,
-        predict: [
-          {
-            q: 'A «Timeout» variant was added, and «describe» was not updated. What happens?',
-            code: 'enum Ack {\n    Accept,\n    Error(String),\n    Timeout,\n}\n\nfn describe(a: &Ack) -> &str {\n    match a {\n        Ack::Accept => "AA",\n        Ack::Error(_) => "AE",\n    }\n}\n\nfn main() {\n    println!("{}", describe(&Ack::Timeout));\n}',
-            options: ['AA', 'Compile error', 'It panics', 'AE'],
-            answer: 1, error: 'E0004',
-            why: 'rustc reports "non-exhaustive patterns" and names the missing one, «Ack::Timeout». Every match on «Ack» without a catch-all fails the same way, so the compiler hands you the full list of places to decide.',
-          },
-        ],
-        quiz: [
-          {
-            q: 'A PR adds «Ack::Timeout». Which of these matches does the compiler NOT flag?',
-            options: ['«match a { Ack::Accept => .., Ack::Error(_) => .. }»', '«match a { Ack::Accept => .., _ => .. }»', 'Both', 'Neither'],
-            answer: 1,
-            why: 'The «_» arm covers every variant, including future ones, so it keeps compiling. Whether a timeout should really land in that arm is exactly the question to ask in the review.',
-          },
-        ],
-      },
       {
         lesson: 'tr-traits', title: 'Traits are interfaces', mins: 7,
         remember: 'A trait is an interface: «impl Trait for Type» means "Type implements Trait", and you can implement your own trait even for types you did not write.',
@@ -200,7 +96,7 @@
           | «PartialOrd», «Ord» | «<», sorting | «Comparable» |
           | «Default» | «T::default()» | a no-argument constructor |
           | «From», «Into» | conversions (last lesson in this module) | static factory methods |
-          | «Send», «Sync» | safe to move or share between threads (module 07) | (nothing) |
+          | «Send», «Sync» | safe to move or share between threads (the Shared state module) | (nothing) |
           | «Drop» | cleanup at the end of scope | «AutoCloseable» |
 
           @predict 0
@@ -212,6 +108,137 @@
             options: ['1', 'Compile error', 'It panics'],
             answer: 1, error: 'E0277',
             why: 'A HashMap key needs «Eq» and «Hash», and «Peer» only derives «PartialEq». rustc reports two E0277 errors (the trait bound «Peer: Eq» is not satisfied, then the same for «Hash») and suggests the derives. «#[derive(PartialEq, Eq, Hash)]» fixes it. Java would compile and silently use identity hashing.',
+          },
+        ],
+      },
+      {
+        lesson: 'tr-syntax', title: 'Traits and bounds, formally', mins: 8,
+        remember: 'A trait declares methods (required, or provided with a default body), associated types and associated constants. A bound «T: Trait» limits a generic to implementing types, «where» holds longer bounds, and «impl Trait for Type» is allowed only when the trait or the type belongs to your crate.',
+        cue: 'Two traits give a type the same method name → «Trait::method(&x)» or «<Type as Trait>::method(&x)» says which one',
+        body: R`
+          ~~~text Syntax
+          trait NAME[<GENERICS>] [: SUPERTRAIT + ...] {
+              type ASSOCIATED_TYPE [: BOUNDS];
+              const ASSOCIATED_CONST: TYPE [= EXPRESSION];
+              fn METHOD(&self, ...) -> TYPE;              required
+              fn METHOD(&self, ...) -> TYPE BLOCK         provided: a default body
+          }
+
+          impl[<GENERICS>] TRAIT for TYPE [where BOUNDS] { ... }
+          fn NAME<T: BOUND + BOUND, U>(x: T, y: U) [-> TYPE] where U: BOUND BLOCK
+          ~~~
+
+          The rules:
+
+          1. An «impl» must define every required method, associated type and constant without a default; it may override the defaults.
+          2. «trait Sink: Debug» makes «Debug» a **supertrait**: every «Sink» type must also implement «Debug», and «Sink»'s methods may use it.
+          3. An **associated type** («type Item;» in «Iterator») is fixed once per implementing type. A **generic trait** («From<T>») can be implemented many times for one type, once per «T».
+          4. A **bound** is «T: A + B + 'static»; the same can be written in a «where» clause. «impl Trait» as a parameter type is an anonymous generic; as a return type it is one concrete type the caller cannot name.
+          5. Impls can be generic: «impl<T: Display> Describe for Wrapper<T>», or even **blanket**: «impl<T: Display> ToString for T» is how every «Display» type gets «to_string()».
+          6. **Coherence (the orphan rule)**: «impl TRAIT for TYPE» compiles only if the trait or the type is defined in the current crate. So there is at most one implementation of a trait for a type in any program.
+          7. A trait's methods can be called only when the trait is **in scope** («use path::Trait;»).
+          8. «dyn Trait» needs a **dyn-compatible** trait: roughly, no method may return «Self» or take generic type parameters (unless marked «where Self: Sized»).
+
+          ~~~rust !run
+          use std::fmt::{self, Debug, Display};
+
+          trait Destination: Debug {
+              type Receipt: Display;
+              const MAX_FRAME: usize = 1024;
+
+              fn send(&mut self, frame: &[u8]) -> Self::Receipt;
+
+              fn name(&self) -> String {
+                  format!("{self:?}")
+              }
+          }
+
+          #[derive(Debug)]
+          struct Console;
+
+          struct Seq(u64);
+
+          impl Display for Seq {
+              fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                  write!(f, "#{}", self.0)
+              }
+          }
+
+          impl Destination for Console {
+              type Receipt = Seq;
+              const MAX_FRAME: usize = 16;
+
+              fn send(&mut self, frame: &[u8]) -> Seq {
+                  Seq(frame.len() as u64)
+              }
+          }
+
+          fn deliver<D>(dest: &mut D, frames: &[&[u8]]) -> Vec<String>
+          where
+              D: Destination,
+          {
+              frames.iter().filter(|f| f.len() <= D::MAX_FRAME).map(|f| dest.send(f).to_string()).collect()
+          }
+
+          fn main() {
+              let mut c = Console;
+              let frames: [&[u8]; 2] = [b"MSH|a", &[0u8; 64]];
+              println!("{:?}", deliver(&mut c, &frames));
+              println!("{} {}", c.name(), <Console as Destination>::MAX_FRAME);
+          }
+          ~~~
+
+          @stop
+
+          ## A trait must be in scope
+
+          ~~~rust !fail
+          mod ports {
+              pub trait Describe {
+                  fn describe(&self) -> String;
+              }
+
+              impl Describe for u16 {
+                  fn describe(&self) -> String {
+                      format!("port {self}")
+                  }
+              }
+          }
+
+          fn main() {
+              println!("{}", 5100u16.describe());
+          }
+          ~~~
+
+          The compiler finds the trait and suggests the «use» line. This is why crates often offer a «prelude» module to glob-import.
+
+          @predict 0
+        `,
+        predict: [
+          {
+            q: 'Two traits give «X» a method with the same name. What happens?',
+            code: R`trait Audit {
+    fn id(&self) -> &str {
+        "audit"
+    }
+}
+
+trait Route {
+    fn id(&self) -> &str {
+        "route"
+    }
+}
+
+struct X;
+impl Audit for X {}
+impl Route for X {}
+
+fn main() {
+    println!("{}", X.id());
+}`,
+            options: ['audit', 'route', 'Compile error'],
+            answer: 2, error: 'E0034',
+            why: '"multiple applicable items in scope": the call is ambiguous, and Rust does not pick one. «Audit::id(&X)» or «<X as Route>::id(&X)» names the trait explicitly.',
           },
         ],
       },
@@ -280,14 +307,14 @@
 
           ## Bounds stack with «+»
 
-          «T: Send + Sync + 'static» reads "T is thread-safe to move and share, and borrows nothing short-lived". «Box<dyn Error + Send + Sync>» is "any error that can cross threads". «Send» and «Sync» are module 07; «'static» was module 03.
+          «T: Send + Sync + 'static» reads "T is thread-safe to move and share, and borrows nothing short-lived". «Box<dyn Error + Send + Sync>» is "any error that can cross threads". «Send» and «Sync» are covered in the Shared state module, and «'static» in the Borrowing module.
 
           ## Traits as test seams
 
-          This is the same trick as Java interfaces plus mocks. Code that reaches the network through a small trait («Accept», «Clock», «Transport») can be tested with a fake that fails on command. Connector code does this, and module 10 uses it.
+          This is the same trick as Java interfaces plus mocks. Code that reaches the network through a small trait («Accept», «Clock», «Transport») can be tested with a fake that fails on command. Server code does this all the time, and the Networking module uses it.
 
-          :::review Generic soup
-          AI-written code often keeps adding type parameters and bounds until it compiles: «fn run<T, U, F>(..) where T: A + B + Clone + 'static, F: Fn(U) -> T + Send». If a function is only ever called with one type, a concrete type is far easier to read. Ask.
+          :::pitfall Generic soup
+          It is tempting to keep adding type parameters and bounds until code compiles: «fn run<T, U, F>(..) where T: A + B + Clone + 'static, F: Fn(U) -> T + Send». If a function is only ever called with one type, a concrete type is far easier to read.
           :::
 
           @quiz 0
@@ -298,6 +325,95 @@
             options: ['«fn run(sinks: Vec<impl Sink>)»', '«fn run<S: Sink>(sinks: Vec<S>)»', '«fn run(sinks: Vec<Box<dyn Sink>>)»', 'All three'],
             answer: 2,
             why: 'A generic picks one concrete type per call, so a «Vec<S>» holds only one kind. A list of different implementations needs trait objects: «Box<dyn Sink>».',
+          },
+        ],
+      },
+      {
+        lesson: 'tr-std', title: 'The standard traits and what they promise', mins: 7, hunts: ['logic'],
+        remember: 'The derivable traits are «Debug», «Clone», «Copy», «PartialEq», «Eq», «PartialOrd», «Ord», «Hash» and «Default», and each carries a promise: «Eq» means every value equals itself, «Hash» must agree with «Eq», «Ord» is a total order. Operators are traits too: «a + b» calls «Add::add(a, b)».',
+        cue: 'A hand-written «impl PartialEq» or «impl Hash» → they must agree: equal values must hash equally, or «HashMap» lookups quietly miss',
+        body: R`
+          | Trait | Derive? | Promise or requirement | Needed by |
+          |---|---|---|---|
+          | «Debug» | yes | a developer-facing format | «{:?}», «assert_eq!», «unwrap» messages |
+          | «Display» | no | a user-facing format; gives «to_string()» | «{}» |
+          | «Clone» | yes | an explicit copy, which may allocate | «.clone()» |
+          | «Copy» | yes | an implicit bit-for-bit copy; needs «Clone», all fields «Copy», no «Drop» | assignment copies instead of moving |
+          | «PartialEq» | yes | «==» and «!=» | |
+          | «Eq» | yes | also reflexive: «a == a» always (floats are not) | «HashMap» keys |
+          | «PartialOrd» | yes | «<», «>»; «partial_cmp» returns «Option<Ordering>» | |
+          | «Ord» | yes | a total order; needs «Eq» and «PartialOrd» | «sort()», «BTreeMap», «max()» |
+          | «Hash» | yes | «a == b» implies equal hashes | «HashMap», «HashSet» keys |
+          | «Default» | yes | a default value | «..Default::default()», «unwrap_or_default()» |
+          | «Drop» | no | runs at the end of the owner's scope | |
+          | «Deref», «DerefMut» | no | «*x», and auto-deref in method calls | «Box», «String», «Vec», «Rc», «Arc» |
+          | «AsRef<T>», «Borrow<T>» | no | a cheap reference conversion | «HashMap<String, _>» looked up by «&str» |
+          | «Send», «Sync» | automatic | safe to move, or to share, between threads | «thread::spawn», «tokio::spawn» |
+
+          Derived comparisons are **lexicographic in declaration order**: fields top to bottom for a struct, and for an enum, earlier variants are smaller.
+
+          ## Operators are traits
+
+          | Expression | Calls |
+          |---|---|
+          | «a + b», «a - b», «a * b», «-a» | «Add::add(a, b)», «Sub», «Mul», «Neg» |
+          | «a += b» | «AddAssign::add_assign(&mut a, b)» |
+          | «a[i]» | «*Index::index(&a, i)», or «IndexMut» |
+          | «a == b», «a < b» | «PartialEq::eq(&a, &b)», «PartialOrd::lt(&a, &b)» |
+          | «*a» | «*Deref::deref(&a)» |
+          | «f(x)» on a closure | «Fn::call», «FnMut», «FnOnce» |
+
+          ~~~rust !run
+          use std::ops::Add;
+
+          #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+          struct Version {
+              major: u16,
+              minor: u16,
+          }
+
+          #[derive(Debug, Clone, Copy, PartialEq, Default)]
+          struct Bytes(u64);
+
+          impl Add for Bytes {
+              type Output = Bytes;
+
+              fn add(self, other: Bytes) -> Bytes {
+                  Bytes(self.0 + other.0)
+              }
+          }
+
+          fn main() {
+              let mut vs = vec![
+                  Version { major: 1, minor: 10 },
+                  Version { major: 1, minor: 2 },
+                  Version { major: 0, minor: 99 },
+              ];
+              vs.sort();
+              println!("{vs:?}");
+              println!("{:?} {:?}", vs.iter().max(), Version::default());
+              println!("{:?}", Bytes(512) + Bytes(1024));
+          }
+          ~~~
+
+          @predict 0
+        `,
+        predict: [
+          {
+            q: 'A derived ordering on an enum. What does this print?',
+            code: R`#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Level {
+    Error,
+    Warn,
+    Info,
+}
+
+fn main() {
+    println!("{}", Level::Error < Level::Info);
+}`,
+            options: ['true', 'false', 'Compile error'],
+            answer: 0,
+            why: 'A derived «PartialOrd» on an enum orders variants by declaration: «Error» comes first, so it is the smallest. Reordering the variants changes every comparison, which is worth remembering before sorting log levels or priorities this way.',
           },
         ],
       },
@@ -345,7 +461,7 @@
 
           ## How «?» converts errors
 
-          Module 04's «#[from]» in thiserror writes an «impl From<io::Error> for FrameError». «?» calls that «From» on the way out. Here it is by hand:
+          The Errors module's «#[from]» in thiserror writes an «impl From<io::Error> for FrameError». «?» calls that «From» on the way out. Here it is by hand:
 
           ~~~rust !run
           use std::num::ParseIntError;
@@ -371,8 +487,8 @@
           }
           ~~~
 
-          :::review Read the «From» when errors are converted
-          A «From» impl decides, silently, which variant every error becomes whenever «?» is used. If it maps every I/O error to «Permanent», a timeout that deserved a retry is treated as a final failure. The PR at the end of this module has exactly that.
+          :::pitfall Read the «From» when errors are converted
+          A «From» impl decides, silently, which variant every error becomes whenever «?» is used. If it maps every I/O error to «Permanent», a timeout that deserved a retry is treated as a final failure. The find-the-bugs exercise at the end of this module has exactly that.
           :::
         `,
         predict: [
@@ -462,7 +578,7 @@ pub fn should_retry(o: &Outcome) -> bool {
 `,
             why: R`
               - The compiler flagged «audit_line», because it listed every variant. It could not flag «should_retry»: the «_» arm already covered the new variant, and answered «false».
-              - That silent «false» is the bug a reviewer has to catch: timeouts would never be retried.
+              - That silent «false» is the real bug: timeouts would never be retried.
               - Listing variants explicitly («Acked | Nacked(_) => false») turns the next new variant into a compile error instead of a quiet decision.
             `,
             talk: 'The compiler flagged the match that listed every variant, but not the one ending in _ => false, which silently decided timeouts are never retried. Explicit arms make the next new variant a compile error instead of a bug.',
@@ -483,12 +599,10 @@ pub fn should_retry(o: &Outcome) -> bool {
       },
       {
         exercise: {
-          id: 'tr-review-route', title: 'PR: pluggable destinations for a route', kind: 'review', mins: 14, diff: 'medium', topics: ['traits'],
+          id: 'tr-review-route', title: 'Find the bugs: pluggable destinations', kind: 'review', mins: 14, diff: 'medium', topics: ['traits'],
           file: 'src/route.rs',
           statement: R`
-            **feat(route): pluggable destinations**
-
-            > Introduces a «Destination» trait so a route can send each frame to several destinations (TCP, file, HTTP). Adds an «io::Error» conversion so destinations can use «?», and a «Display» for TCP destinations for the logs.
+            **The change:** Introduces a «Destination» trait so a route can send each frame to several destinations (TCP, file, HTTP). Adds an «io::Error» conversion so destinations can use «?», and a «Display» for TCP destinations for the logs.
 
             Context: frames are up to a few MB; a route usually has two or three destinations; the retry worker re-sends anything that failed with «SendError::Retryable».
           `,

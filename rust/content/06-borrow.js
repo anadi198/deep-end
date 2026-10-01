@@ -2,7 +2,7 @@
   const RL = root.RL, R = RL.R;
   RL.module({
     id: 'borrow', title: 'Borrowing: lending without giving away', short: 'Borrow',
-    blurb: 'The read-write lock the compiler checks, why reordering lines fixes borrow errors, how to read «\'a», what «&self» and «&mut self» promise, and how AI code cheats its way past the borrow checker.',
+    blurb: 'The read-write lock the compiler checks, why reordering lines fixes borrow errors, how to read «\'a», what «&self» and «&mut self» promise, and the "fixes" that only move a borrow error somewhere worse.',
     items: [
       {
         lesson: 'borrow-rwlock', title: 'Borrowing is a read-write lock the compiler checks', mins: 7,
@@ -11,7 +11,7 @@
         body: R`
           ## Lending without giving away
 
-          «&x» lends x for reading. «&mut x» lends it for writing. The owner gets it back when the borrow ends, and nothing is copied. Module 02 said a function that only reads should take «&str»: this is why that works.
+          «&x» lends x for reading. «&mut x» lends it for writing. The owner gets it back when the borrow ends, and nothing is copied. The Ownership module said a function that only reads should take «&str»: this is why that works.
 
           :::vs The same rule in two worlds
           ~~~java
@@ -95,8 +95,8 @@
 
           «first_len» is a «usize», a plain copied number, so nothing is borrowed across the «push».
 
-          :::review When a PR "fixes" a borrow error
-          Check which of the four it used. Reorders and copies of small values are real fixes. A clone of something big, or the escape hatches in the last lesson of this module, are worth a comment.
+          :::pitfall When a borrow error gets "fixed"
+          Check which of the four was used. Reorders and copies of small values are real fixes. A clone of something big, or one of the escape hatches in the last lesson of this module, only moves the problem.
           :::
         `,
         predict: [
@@ -110,7 +110,7 @@
         ],
       },
       {
-        lesson: 'borrow-lifetimes', title: 'Reading lifetimes («\'a») without writing them', mins: 8,
+        lesson: 'borrow-lifetimes', title: 'Lifetimes («\'a»)', mins: 8,
         remember: 'A lifetime like «\'a» is a label, not a duration you choose: it says a reference cannot outlive the thing it points into.',
         cue: '«T: \'static» on «spawn» or a thread → the value must own all its data (borrow nothing short-lived), not "live forever"',
         body: R`
@@ -187,9 +187,9 @@
           }
           ~~~
 
-          «move» makes the closure take ownership of «batch», so the thread owns what it uses. That is why you see «move» closures and «Arc» clones right before every spawn in connector code.
+          «move» makes the closure take ownership of «batch», so the thread owns what it uses. That is why «move» closures and «Arc» clones appear right before nearly every spawn in server code.
 
-          :::review Lifetimes in a PR
+          :::pitfall Lifetimes in practice
           - A few «'a» on a parser or an iterator: normal.
           - Lifetimes spreading across many structs to make something compile: ask whether the data should just be owned. Owned data plus an occasional clone is usually easier to maintain.
           - «Box::leak» to get a «'static» reference: leaks memory on purpose. See the last lesson in this module.
@@ -255,19 +255,113 @@
         ],
       },
       {
-        lesson: 'borrow-ai-fixes', title: 'How AI silences the borrow checker', mins: 7, hunts: ['panic', 'cost', 'unbounded'],
+        lesson: 'borrow-rules', title: 'The borrowing rules and lifetime elision, precisely', mins: 7,
+        remember: 'At any point a value has either one «&mut» borrow or any number of «&» borrows, never both, and no reference may outlive its referent. When a signature leaves lifetimes out, three elision rules fill them in; if they cannot, the signature must name them.',
+        cue: 'A function returns a reference and takes two reference parameters (and no «self») → elision cannot choose; an explicit «\'a» must say which input the result borrows from',
+        body: R`
+          ## The rules
+
+          1. **Aliasing or mutation, never both.** While a «&mut T» to a value is alive, no other reference to it may be used; while any «&T» is alive, it cannot be mutated through anything else.
+          2. **No dangling.** A reference's lifetime lies within the lifetime of the value it points to.
+          3. **A borrow lasts until its last use**, not until the end of the block (non-lexical lifetimes).
+          4. **A borrowed value cannot be moved.** While any reference to it is alive, the owner cannot give it away or drop it.
+          5. **Reborrowing.** Passing a «&mut T» to a function lends it for the duration of the call (an implicit «&mut *r»), after which the original is usable again.
+
+          ## The three elision rules
+
+          In a function signature, lifetimes that are left out are filled in like this:
+
+          1. Every elided lifetime in the **parameters** becomes a separate lifetime parameter.
+          2. If there is exactly **one** input lifetime, elided or not, it is given to every elided output lifetime.
+          3. If there are several input lifetimes but one of them is «&self» or «&mut self», the lifetime of «self» is given to every elided output lifetime.
+
+          If an output lifetime is still unassigned after that, the signature is an error and must be written out.
+
+          | Written | What the compiler reads |
+          |---|---|
+          | «fn first(s: &str) -> &str» | «fn first<'a>(s: &'a str) -> &'a str» (rule 2) |
+          | «fn name(&self, key: &str) -> &str» | «fn name<'a, 'b>(&'a self, key: &'b str) -> &'a str» (rule 3) |
+          | «fn longer(a: &str, b: &str) -> &str» | no rule applies: an error |
+
+          ~~~rust !fail
+          fn longer(a: &str, b: &str) -> &str {
+              if a.len() >= b.len() { a } else { b }
+          }
+
+          fn main() {
+              println!("{}", longer("ADT", "ORU^R01"));
+          }
+          ~~~
+
+          The compiler suggests «<'a>» on both inputs and the output, which is the «longer» from the Lifetimes lesson.
+
+          @stop
+
+          ## Rule 3 has a consequence
+
+          @predict 0
+
+          ## Lifetimes on types
+
+          A struct that holds a reference must declare a lifetime parameter, and so must its «impl»:
+
+          ~~~rust !run
+          struct Fields<'a> {
+              line: &'a str,
+          }
+
+          impl<'a> Fields<'a> {
+              fn nth(&self, n: usize) -> Option<&'a str> {
+                  self.line.split('|').nth(n)
+              }
+          }
+
+          fn main() {
+              let line = String::from("MSH|^~\\&|LAB");
+              let f = Fields { line: &line };
+              println!("{:?} {:?}", f.nth(2), f.nth(9));
+          }
+          ~~~
+
+          «Option<&'a str>» says the result borrows from the original line, not from the «Fields» value, so it may outlive «f» as long as «line» is still alive.
+        `,
+        predict: [
+          {
+            q: 'The method returns the other argument, not something inside «self». What happens?',
+            code: R`struct Store {
+    name: String,
+}
+
+impl Store {
+    fn pick(&self, other: &str) -> &str {
+        if self.name.is_empty() { other } else { &self.name }
+    }
+}
+
+fn main() {
+    let s = Store { name: String::new() };
+    println!("{}", s.pick("fallback"));
+}`,
+            options: ['fallback', 'Compile error', 'It prints an empty line'],
+            answer: 1,
+            why: 'By rule 3 the result borrows from «self», but one branch returns «other», which has an unrelated lifetime: "lifetime may not live long enough". The signature has to say that both inputs and the output share one lifetime: «fn pick<\'a>(&\'a self, other: &\'a str) -> &\'a str».',
+          },
+        ],
+      },
+      {
+        lesson: 'borrow-ai-fixes', title: 'Escape hatches: fixes that move the problem', mins: 7, hunts: ['panic', 'cost', 'unbounded'],
         remember: 'When code fought the borrow checker, check how it won: reordering or borrowing is a real fix; big clones, «RefCell» and leaked memory move the problem somewhere worse.',
-        cue: 'A PR adds «RefCell», «Rc<RefCell<..>>», «Box::leak» or a pile of «.clone()» → ask which borrow error it fixed, and whether a reorder or a borrow would do',
+        cue: '«RefCell», «Rc<RefCell<..>>», «Box::leak» or a pile of «.clone()» added to make code compile → which borrow error did it fix, and would a reorder or a borrow do?',
         body: R`
           ## The escape hatches, best to worst
 
-          | The fix | What it really does | In review |
+          | The fix | What it really does | Verdict |
           |---|---|---|
           | Reorder lines, borrow instead of own, return an owned value | fixes the design | good |
           | «.clone()» of something small, or of an «Arc» | a cheap copy | fine |
-          | «.clone()» of big data in a loop | pays for every byte, every time | comment |
-          | «RefCell», «Rc<RefCell<T>>» | moves the borrow check to run time: a conflict becomes a panic | comment, ask why |
-          | «Box::leak», «std::mem::forget», «unsafe» | leaks memory, or switches the checks off | block; get a second reviewer for «unsafe» |
+          | «.clone()» of big data in a loop | pays for every byte, every time | avoid |
+          | «RefCell», «Rc<RefCell<T>>» | moves the borrow check to run time: a conflict becomes a panic | only with a real reason |
+          | «Box::leak», «std::mem::forget», «unsafe» | leaks memory, or switches the checks off | avoid; «unsafe» is beyond this course |
 
           ## «RefCell»: the same rules, checked while running
 
@@ -282,7 +376,7 @@
           }
           ~~~
 
-          Exactly the conflict from the first lesson of this module, but the compiler has been told to stand aside, so it becomes a panic on the day that code path runs. «RefCell» has real uses (a cache behind a «&self» method, graph structures). In a PR whose description says "fixed borrow checker errors", it is a smell.
+          Exactly the conflict from the first lesson of this module, but the compiler has been told to stand aside, so it becomes a panic on the day that code path runs. «RefCell» has real uses (a cache behind a «&self» method, graph structures). Reached for only to "fix borrow checker errors", it is a smell.
 
           @stop
 
@@ -308,7 +402,7 @@
         `,
         quiz: [
           {
-            q: 'A PR says "fixed the borrow checker errors". The diff wraps a struct\'s «Vec» in «Rc<RefCell<...>>». What do you ask?',
+            q: 'A change "fixes the borrow checker errors" by wrapping a struct\'s «Vec» in «Rc<RefCell<...>>». What is the catch?',
             options: ['Nothing: «RefCell» is the standard fix', 'Which borrow conflict it was solving, because «RefCell» turns that conflict into a run-time panic', 'Whether «Arc<Mutex>» would be faster', 'Whether it could use «unsafe» instead'],
             answer: 1,
             why: 'The conflict did not go away; it moved from compile time to run time. Often a reorder, a borrow, or taking ownership fixes the real problem.',
@@ -415,12 +509,10 @@ impl Outbox {
       },
       {
         exercise: {
-          id: 'borrow-review-retry', title: 'PR: fix the borrow checker errors in the retry queue', kind: 'review', mins: 12, diff: 'medium', topics: ['borrowing'],
+          id: 'borrow-review-retry', title: 'Find the bugs: a retry queue that compiles now', kind: 'review', mins: 12, diff: 'medium', topics: ['borrowing'],
           file: 'src/retry.rs',
           statement: R`
-            **fix(retry): fix borrow checker errors**
-
-            > The retry queue would not compile after adding «tick» and «label». Wrapped the items in «Rc<RefCell<...>>» and adjusted the signatures. Compiles now, and the existing tests pass.
+            **The change:** The retry queue would not compile after adding «tick» and «label». Wrapped the items in «Rc<RefCell<...>>» and adjusted the signatures. Compiles now, and the existing tests pass.
 
             Context: the queue lives on one thread; «tick» runs every second; «label» is called once per retry, which is thousands of times an hour.
           `,

@@ -1,5 +1,5 @@
 /* Recognition drill items, for the drill page and the daily review.
- * Each: { q, code, options, answer, why, topic }. PRs you finish add "which hunt is this line?" items. */
+ * Each: { q, code, options, answer, why, topic }. Finished find-the-bugs exercises add "which kind of bug is this line?" items. */
 (function (root) {
   const RL = root.RL;
   RL.drill.push(
@@ -15,7 +15,7 @@
     /* ── ownership ── */
     { topic: 'own', q: 'Which of these is «Copy»?', options: ['«String»', '«Vec<u8>»', '«u32»', '«Box<u32>»'], answer: 2, why: 'Plain numbers, «bool» and «char» are copied on assignment. Anything that owns heap memory moves instead.' },
     { topic: 'own', q: 'What does «Arc::clone(&cfg)» cost?', options: ['A deep copy of the config', 'One atomic counter increment', 'Taking a lock', 'Nothing at all'], answer: 1, why: 'Cloning an «Arc» adds one owner to the count. The data itself is shared, not copied.' },
-    { topic: 'own', q: 'A PR adds «fn send(frame: Vec<u8>)». After «send(buf)», the caller…', options: ['can keep using «buf»', 'cannot use «buf» any more: it moved', 'has a copy', 'has a null'], answer: 1, why: 'A parameter without «&» takes ownership. «fn send(frame: &[u8])» would borrow instead.' },
+    { topic: 'own', q: 'Given «fn send(frame: Vec<u8>)», after «send(buf)» the caller…', options: ['can keep using «buf»', 'cannot use «buf» any more: it moved', 'has a copy', 'has a null'], answer: 1, why: 'A parameter without «&» takes ownership. «fn send(frame: &[u8])» would borrow instead.' },
     { topic: 'own', q: 'How long is this lock held (tokio Mutex)?', code: 'let _ = mutex.lock().await;', options: ['Until the end of the function', 'Not past this line: it is released immediately', 'Until «drop» is called', 'Until the next await'], answer: 1, why: '«let _ =» binds nothing, so the guard is dropped at the end of the statement. For std\'s Mutex the compiler rejects this; for tokio\'s it does not.' },
     { topic: 'own', q: '«&str» is to «String» as what is to «Vec<u8>»?', options: ['«&[u8]»', '«Box<u8>»', '«[u8; 4]»', '«&Vec<u8>»'], answer: 0, why: 'The borrowed view of owned bytes is a slice, «&[u8]». Functions that only read should take it.' },
     { topic: 'own', q: 'What happens here?', code: 'let name = String::from("José");\nlet s = &name[..4];', options: ['s is "José"', 's is "Jos"', 'It panics', 'Compile error'], answer: 2, why: '«é» is two bytes, so byte 4 lands inside it. Slicing a string at a non-character boundary panics.' },
@@ -47,7 +47,7 @@
     { topic: 'errors', q: 'What does «.context("reading config")?» add (anyhow)?', options: ['A retry', 'A message saying what the program was doing when it failed', 'A panic', 'A default value'], answer: 1, why: 'The error keeps its cause and gains the context, so the log line says both.' },
 
     /* ── enums and traits ── */
-    { topic: 'traits', q: 'A PR adds a variant to an enum. Which matches will the compiler flag?', options: ['All of them', 'Only those without a «_ =>» catch-all', 'Only those with a catch-all', 'None: new variants are always allowed'], answer: 1, why: 'A catch-all arm covers the new variant silently. That is exactly the match to look at in the review.' },
+    { topic: 'traits', q: 'A variant is added to an enum. Which matches will the compiler flag?', options: ['All of them', 'Only those without a «_ =>» catch-all', 'Only those with a catch-all', 'None: new variants are always allowed'], answer: 1, why: 'A catch-all arm covers the new variant silently. That is exactly the match to look at in the review.' },
     { topic: 'traits', q: 'How do you read «impl Sink for FileSink»?', options: ['FileSink extends Sink', 'FileSink implements Sink', 'Sink wraps FileSink', 'FileSink is a generic parameter'], answer: 1, why: 'A trait is an interface; «impl Trait for Type» is «implements».' },
     { topic: 'traits', q: 'A list that mixes two different «Sink» implementations has type…', options: ['«Vec<impl Sink>»', '«Vec<S> where S: Sink»', '«Vec<Box<dyn Sink>>»', '«Vec<Sink>»'], answer: 2, why: 'Generics pick one concrete type. Mixed implementations need trait objects behind a pointer.' },
     { topic: 'traits', q: 'Why does «let n: u8 = 300u16.into();» not compile?', options: ['«into» is only for strings', 'There is no «From<u16> for u8»: the conversion could lose information', 'u16 is not Copy', 'It needs «mut»'], answer: 1, why: '«From» exists only for lossless conversions. «u8::try_from» is the checked one; «as» truncates without asking.' },
@@ -58,7 +58,7 @@
     { topic: 'iter', q: '«filter(..).count() > 0» on a big collection is better written as…', options: ['«.all(..)»', '«.any(..)»', '«.find(..).unwrap()»', '«.collect::<Vec<_>>().len() > 0»'], answer: 1, why: '«any» stops at the first match instead of walking everything.' },
 
     /* ── shared state ── */
-    { topic: 'shared', q: 'Why is «Arc<Vec<u8>>» read-only?', options: ['Vec is immutable', 'An «Arc» hands out shared access; changing shared data needs a lock or an atomic inside', 'Arc copies on write', 'It is not read-only'], answer: 1, why: 'Shared means read-only (module 03). Hence «Arc<Mutex<T>>».' },
+    { topic: 'shared', q: 'Why is «Arc<Vec<u8>>» read-only?', options: ['Vec is immutable', 'An «Arc» hands out shared access; changing shared data needs a lock or an atomic inside', 'Arc copies on write', 'It is not read-only'], answer: 1, why: 'Shared means read-only (the Borrowing module). Hence «Arc<Mutex<T>>».' },
     { topic: 'shared', q: 'Two methods lock mutex A then B, and B then A. What can happen?', options: ['A compile error', 'A deadlock under load', 'A panic', 'Nothing: Rust prevents it'], answer: 1, why: 'Rust prevents data races, not deadlocks. Locks must be taken in one agreed order.' },
     { topic: 'shared', q: 'E0277 "Rc<..> cannot be sent between threads safely" is fixed by…', options: ['unsafe', 'switching to Arc', 'adding move', 'cloning the Rc'], answer: 1, why: '«Arc» is the thread-safe version of «Rc».' },
 
@@ -83,7 +83,7 @@
 
     /* ── crates ── */
     { topic: 'crates', q: 'In Cargo.toml, what does «serde = "1.0.200"» allow?', options: ['exactly 1.0.200', '1.0.200 or any later 1.x', 'any version at all', '1.0.x only'], answer: 1, why: 'A plain version is a range up to the next breaking version. «Cargo.lock» records which one was actually built.' },
-    { topic: 'crates', q: 'A PR bumps «tonic = "0.12"» to «"0.13"». How big is that?', options: ['a patch release', 'a breaking upgrade: before 1.0 the second number is the breaking one', 'nothing changes until Cargo.lock is deleted', 'only new features'], answer: 1, why: 'For 0.x crates, 0.12 to 0.13 may break the API, so the PR should contain the code changes that go with it.' },
+    { topic: 'crates', q: 'Bumping «tonic = "0.12"» to «"0.13"»: how big a change is that?', options: ['a patch release', 'a breaking upgrade: before 1.0 the second number is the breaking one', 'nothing changes until Cargo.lock is deleted', 'only new features'], answer: 1, why: 'For 0.x crates, 0.12 to 0.13 may break the API, so expect code changes to go with it.' },
     { topic: 'crates', q: 'The compiler says an item was "configured out" and names a feature. Where is the fix?', options: ['in the code that uses it', 'in Cargo.toml: turn that feature on for the dependency', 'update the Rust toolchain', 'add a «use» line'], answer: 1, why: 'The code exists in the crate but is switched off. «features = ["attributes"]» (or whichever the message names) switches it on.' },
     { topic: 'crates', q: 'What does «pub(crate)» on a function mean?', options: ['public to everyone', 'usable anywhere in this crate, invisible to other crates', 'usable only in this module', 'usable only in tests'], answer: 1, why: 'It is the right default for internals: other code in the crate can call it, and no other crate can start depending on it.' },
     { topic: 'crates', q: 'Which check still runs in a release build?', options: ['«debug_assert!(len < MAX)»', '«assert!(len < MAX)»', 'neither', 'both'], answer: 1, why: '«debug_assert!» is compiled out of release builds. Checking outside input needs a real «if» that returns an error.' },

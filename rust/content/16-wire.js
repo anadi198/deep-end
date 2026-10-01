@@ -166,7 +166,7 @@ impl TryFrom<i32> for Kind {
 
           ## The attributes that change the rules
 
-          | Attribute | Effect | The review question |
+          | Attribute | Effect | The question to ask |
           |---|---|---|
           | «#[serde(rename_all = "camelCase")]» | JSON names in camelCase | does it match the other side? |
           | «#[serde(rename = "type")]» | one field's JSON name | |
@@ -181,7 +181,7 @@ impl TryFrom<i32> for Kind {
 
           @predict 1
 
-          :::review For every serde change in a PR
+          :::pitfall serde checklist
           1. What happens to a missing field, a misspelt field, and a value of the wrong type? Each should be a decision, not an accident.
           2. «serde_json::from_slice(&body).unwrap()» on data from outside is a crash; «.unwrap_or_default()» turns a broken message into an empty one without a word.
           3. «untagged»: list the strictest variant first.
@@ -189,7 +189,7 @@ impl TryFrom<i32> for Kind {
         `,
         predict: [
           {
-            q: 'Module 01 showed «300 as u8» quietly becoming 44. What does serde do with it?',
+            q: 'The Types module showed «300 as u8» quietly becoming 44. What does serde do with it?',
             code: R`use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -502,7 +502,7 @@ ${hide(PROTO_TYPES)}`,
 
           Without either timeout, a call to a stuck server waits until the server answers, and on a connection that silently died, until the operating system gives up on it, which can take many minutes. On the server side, the same question applies to everything the handler awaits: a destination, a database, a lock.
 
-          :::review For every gRPC change in a PR
+          :::pitfall gRPC checklist
           1. Every client call: what bounds the wait?
           2. Every «Status»: is the code right for the caller's retries, and is the message free of internal details?
           3. Every generated message it reads: «Option» fields handled, enums through «try_from».
@@ -511,9 +511,9 @@ ${hide(PROTO_TYPES)}`,
         `,
       },
       {
-        lesson: 'wi-tests', title: 'Reading tests: what does this test prove?', mins: 7, hunts: ['logic'],
+        lesson: 'wi-tests', title: 'Tests: what a test actually proves', mins: 7, hunts: ['logic'],
         remember: 'Unit tests sit next to the code in «#[cfg(test)] mod tests» and can reach private items. A test proves only what it asserts: read the asserts first, because a test with no assert, or one that only checks a mock was called, passes on broken code.',
-        cue: 'An AI-written test → cover the asserts with your hand and ask: would this still pass if the function returned the wrong answer?',
+        cue: 'Any test → cover the asserts with your hand and ask: would this still pass if the function returned the wrong answer?',
         body: R`
           ## Where tests live
 
@@ -559,9 +559,9 @@ ${hide(PROTO_TYPES)}`,
 
           ## Fakes and mocks
 
-          This lab's tests use hand-written fakes: a trait that the real destination and the fake both implement (module 05). Many crates use mockall instead, which writes the fake for you. Here is how it reads:
+          This lab's tests use hand-written fakes: a trait that the real destination and the fake both implement (the Traits module). Many crates use mockall instead, which writes the fake for you. Here is how it reads:
 
-          ~~~rust mockall, as you will see it in PRs (display only)
+          ~~~rust mockall, as it usually looks (display only)
           #[automock]
           trait Downstream {
               fn deliver(&self, route: &str, body: &[u8]) -> Result<(), String>;
@@ -587,7 +587,7 @@ ${hide(PROTO_TYPES)}`,
 
           ## Tests that prove nothing
 
-          ~~~rust An AI-written test (display only)
+          ~~~rust A test that looks fine (display only)
           #[tokio::test]
           async fn retries_on_failure() {
               let mut mock = MockDownstream::new();
@@ -599,12 +599,12 @@ ${hide(PROTO_TYPES)}`,
 
           It is named after retries, but nothing checks how many times «deliver» ran, and the result is thrown away. Delete the retry loop entirely and this test still passes. It proves only that «forward» does not panic.
 
-          :::review For every test in a PR
+          :::pitfall Test checklist
           1. Cover the asserts: what would have to break for this test to fail?
           2. «let _ =» on the result under test, or no assert at all.
           3. A mock with no «withf» and no «times» checks nothing about the call.
           4. Real sleeps make slow, flaky tests. «start_paused» plus tokio's «sleep» makes them instant and exact.
-          5. An «#[ignore]» added in the PR: why, and who runs it?
+          5. An «#[ignore]»: why, and who runs it?
           :::
 
           @quiz 0
@@ -1079,14 +1079,12 @@ impl TryFrom<proto::Frame> for Frame {
       },
       {
         exercise: {
-          id: 'wi-review-grpc', title: 'PR: the relay\'s gRPC service', kind: 'review', mins: 18, diff: 'hard', topics: ['grpc'],
+          id: 'wi-review-grpc', title: 'Find the bugs: a gRPC service', kind: 'review', mins: 18, diff: 'hard', topics: ['grpc'],
           file: 'src/relay_service.rs',
           statement: R`
-            **feat(relay): gRPC service for the engine**
+            **The change:** Implements «Send» (deliver one frame to its route's destination and ack it) and «Subscribe» (a heartbeat ack every second, so the engine knows the relay is alive).
 
-            > Implements «Send» (deliver one frame to its route's destination and ack it) and «Subscribe» (a heartbeat ack every second, so the engine knows the relay is alive).
-
-            Context: the engine, a Java service, calls «Send» for every frame and retries calls that fail with «UNAVAILABLE». Frames reach the engine from other systems, and a newer engine version may send kinds this relay does not know yet. A destination can stall for minutes. The generated «proto» code and tonic itself are not part of the PR (on the Playground they are stand-ins with the same names, and they are not shown).
+            Context: the engine, a Java service, calls «Send» for every frame and retries calls that fail with «UNAVAILABLE». Frames reach the engine from other systems, and a newer engine version may send kinds this relay does not know yet. A destination can stall for minutes. The generated «proto» code and tonic itself are not shown (on the Playground they are stand-ins with the same names).
           `,
           code: R`
 use std::time::Duration;

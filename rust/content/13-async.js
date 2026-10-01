@@ -1,7 +1,7 @@
 (function (root) {
   const RL = root.RL, R = RL.R;
   RL.module({
-    id: 'async', title: 'Async and Tokio: Reactor, but you can read it', short: 'Async',
+    id: 'async', title: 'Async and Tokio', short: 'Async',
     blurb: 'Futures are lazy like a «Mono», «tokio::spawn» and where its failures go, the cardinal sin of blocking the runtime, and what happens to locks across «.await».',
     items: [
       {
@@ -100,7 +100,7 @@
 
           @predict 0
 
-          Dropping a **handle** detaches the task: it carries on unsupervised. Dropping a **future** that was never spawned cancels it (module 09). «handle.abort()» is how you actually stop a spawned task.
+          Dropping a **handle** detaches the task: it carries on unsupervised. Dropping a **future** that was never spawned cancels it (the Channels module). «handle.abort()» is how you actually stop a spawned task.
 
           @stop
 
@@ -110,7 +110,7 @@
           - For many tasks, «JoinSet» collects them: «while let Some(res) = set.join_next().await { ... }» sees each one finish or fail.
           - When «main» returns, the runtime shuts down and **every unfinished task is dropped mid-work**. A "flush the buffer" task that is still running at that moment never completes.
 
-          :::review For every «tokio::spawn» in a PR
+          :::pitfall For every «tokio::spawn»
           1. Where does the handle go? Dropped means failures are invisible.
           2. What happens to this task at shutdown? Is there work in flight that would be lost?
           :::
@@ -130,7 +130,7 @@
         remember: 'A Tokio worker thread runs many tasks by switching at each «.await»; blocking it (a sleep, file I/O, a long loop, a slow std lock) freezes every task waiting for that thread.',
         cue: '«std::thread::sleep», «std::fs», a blocking client or heavy CPU inside an «async fn» → «tokio::time::sleep», «tokio::fs», or «tokio::task::spawn_blocking»',
         body: R`
-          In Reactor you would never call a blocking method on an event-loop thread; BlockHound exists to catch that. Rust has no BlockHound, and the compiler happily accepts blocking calls inside «async fn». This is the number one async review hunt.
+          In Reactor you would never call a blocking method on an event-loop thread; BlockHound exists to catch that. Rust has no BlockHound, and the compiler happily accepts blocking calls inside «async fn». It is the most common async bug.
 
           ~~~rust !run
           use std::time::{Duration, Instant};
@@ -204,7 +204,7 @@
         body: R`
           ## std «Mutex»: the compiler has your back
 
-          Module 07 showed it: a std guard held across an «.await» in a spawned task does not compile. The fix is to finish with the lock before awaiting:
+          The Shared state module showed it: a std guard held across an «.await» in a spawned task does not compile. The fix is to finish with the lock before awaiting:
 
           ~~~rust !run
           use std::sync::{Arc, Mutex};
@@ -234,8 +234,8 @@
 
           @stop
 
-          :::review Holding an async lock across a slow await
-          Ask what the guarded section awaits. A lock around "write a frame and wait for the ACK" makes every sender wait for the slowest peer. Better shapes: take what you need and release before the slow await, or give the connection its own task and send it work through a channel (module 09).
+          :::pitfall Holding an async lock across a slow await
+          Look at what the guarded section awaits. A lock around "write a frame and wait for the ACK" makes every sender wait for the slowest peer. Better shapes: take what you need and release before the slow await, or give the connection its own task and send it work through a channel (the Channels module).
           :::
         `,
         predict: [
@@ -337,14 +337,12 @@ pub async fn check_all(peers: &[&str]) -> Vec<String> {
       },
       {
         exercise: {
-          id: 'as-review-poller', title: 'PR: poll peers and publish their status', kind: 'review', mins: 14, diff: 'medium', topics: ['async'],
+          id: 'as-review-poller', title: 'Find the bugs: a peer status poller', kind: 'review', mins: 14, diff: 'medium', topics: ['async'],
           file: 'src/health.rs',
           statement: R`
-            **feat(health): poll peers and publish status**
+            **The change:** A background task checks every peer by opening a TCP connection every 10 seconds and records whether it is up. «write_report» writes the status to a file for the ops dashboard.
 
-            > A background task checks every peer by opening a TCP connection every 10 seconds and records whether it is up. «write_report» writes the status to a file for the ops dashboard.
-
-            Context: this runs inside the connector's Tokio runtime, next to the tasks that move messages. Some peers sit behind VPNs and silently drop packets when the tunnel is down.
+            Context: this runs inside the service's Tokio runtime, next to the tasks that move messages. Some peers sit behind VPNs and silently drop packets when the tunnel is down.
           `,
           code: R`
 use std::collections::HashMap;

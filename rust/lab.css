@@ -69,6 +69,9 @@ body { background: var(--paper); }
 .callout.review { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule)); background: var(--panel); border-left: 4px solid var(--accent); }
 .callout.review > b:first-child { color: var(--accent); }
 .callout.review > b:first-child::before { content: "Review · "; font-weight: 800; }
+.callout.pitfall { border-color: color-mix(in srgb, var(--amber) 45%, var(--rule)); background: var(--panel); border-left: 4px solid var(--amber); }
+.callout.pitfall > b:first-child { color: var(--amber); }
+.callout.pitfall > b:first-child::before { content: "Pitfalls · "; font-weight: 800; }
 
 /* ── Java and Rust side by side ── */
 .callout.vs { background: var(--panel); max-width: none; }
@@ -117,7 +120,7 @@ body { background: var(--paper); }
 code.multi { display: block; white-space: pre; font: 12.5px/1.45 var(--f-mono); background: transparent; border: 0; padding: 0; }
 .quiz.predict .opts { display: grid; gap: 2px; }
 
-/* ── the eight hunts ── */
+/* ── the eight kinds of bug ── */
 .h-panic { --h: var(--h-panic); } .h-swallow { --h: var(--h-swallow); } .h-block { --h: var(--h-block); } .h-hang { --h: var(--h-hang); }
 .h-lost { --h: var(--h-lost); } .h-unbounded { --h: var(--h-unbounded); } .h-logic { --h: var(--h-logic); } .h-cost { --h: var(--h-cost); }
 .hchip { display: inline-flex; gap: 6px; align-items: center; font: 650 12.5px/1.2 var(--f-ui); padding: 3px 10px 3px 3px; border-radius: 99px; border: 1px solid color-mix(in srgb, var(--h) 45%, var(--rule)); background: color-mix(in srgb, var(--h) 11%, var(--panel)); color: var(--h); white-space: nowrap; }
@@ -191,7 +194,7 @@ code.multi { display: block; white-space: pre; font: 12.5px/1.45 var(--f-mono); 
 .res-body .hchip { background: color-mix(in srgb, var(--h) 16%, var(--term-bg)); border-color: color-mix(in srgb, var(--h) 45%, var(--term-rule)); }
 .res-body .hchip i { color: var(--term-bg); }
 
-/* ── PR review: the diff ── */
+/* ── find the bugs: the code view ── */
 .code.reviewing .editor-wrap { overflow: hidden; }
 .rv-diff { height: 100%; overflow: auto; font: 12.5px/1.6 var(--f-mono); background: var(--term-bg); color: var(--term-ink); padding: 6px 0 24px; }
 .rv-line { display: grid; grid-template-columns: 38px 14px minmax(0, 1fr) auto; align-items: start; column-gap: 4px; cursor: pointer; padding-right: 8px; border-left: 3px solid transparent; outline: none; }
@@ -312,7 +315,7 @@ code.multi { display: block; white-space: pre; font: 12.5px/1.45 var(--f-mono); 
   .vs-grid, .hunt-groups, .hunt-cols { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* ── a review issue's proof: a test that fails on the PR code ── */
+/* ── a bug's proof: a test that fails on the exercise code ── */
 .demo { margin-top: 8px; font: 13px/1.5 var(--f-ui); }
 .demo summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 .res-body .demo summary { color: var(--term-accent); }
@@ -320,7 +323,7 @@ code.multi { display: block; white-space: pre; font: 12.5px/1.45 var(--f-mono); 
 .res-body .demo .tcode { background: var(--term-bg-3); color: var(--term-ink); }
 .demo .out { padding: 4px 0; }
 
-/* ── PR descriptions ── */
+/* ── exercise statements ── */
 .prose blockquote { margin: 0 0 16px; padding: 10px 14px; border-left: 3px solid var(--rule); background: var(--panel); border-radius: 0 10px 10px 0; color: var(--ink-2); max-width: 70ch; }
 .prose blockquote p { margin: 0; }
 @media (max-width: 520px) {

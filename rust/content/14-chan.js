@@ -48,7 +48,7 @@
 
           «tx.send(x).await» returns «Err» when the receiving task has died. «let _ = tx.send(x).await» throws that away, and the producer carries on working for nobody.
 
-          :::review For every channel in a PR
+          :::pitfall For every channel
           1. Bounded or not, and what happens when it is full?
           2. Which senders keep the receive loop alive, and are they dropped at shutdown?
           3. Is a failed «send» noticed?
@@ -101,7 +101,7 @@
           }
           ~~~
 
-          Connector-style code uses exactly this shape to stop listeners and connection tasks. «select!» is the next lesson.
+          Network servers use exactly this shape to stop listeners and connection tasks. «select!» is the next lesson.
 
           @stop
 
@@ -170,7 +170,7 @@
           | «rx.recv()», «watch.changed()», «listener.accept()» | «read_exact», «read_to_end», «read_to_string» |
           | «stream.read(..)», «read_buf(..)», «sleep», «interval.tick()» | «write_all» (some bytes may already be sent) |
 
-          The fix is to keep partial state **outside** the raced future: read with «read_buf» into a buffer that lives across loop iterations, then cut frames out of the buffer (module 10).
+          The fix is to keep partial state **outside** the raced future: read with «read_buf» into a buffer that lives across loop iterations, then cut frames out of the buffer (the Networking module).
 
           @stop
 
@@ -212,8 +212,8 @@
           }
           ~~~
 
-          :::review «Ok(..) =» or «Some(..) =» in a «select!» branch
-          Ask what happens when that future returns the other variant. «Some(x) = rx.recv()» is the normal idiom (the branch switches off once the channel closes, which is usually what you want). «Ok(x) = listener.accept()» is a trap: one accept error and the server stops accepting, silently, forever.
+          :::pitfall «Ok(..) =» or «Some(..) =» in a «select!» branch
+          Think through what happens when that future returns the other variant. «Some(x) = rx.recv()» is the normal idiom (the branch switches off once the channel closes, which is usually what you want). «Ok(x) = listener.accept()» is a trap: one accept error and the server stops accepting, silently, forever.
           :::
         `,
         predict: [
@@ -298,7 +298,7 @@
 
           «CancellationToken» (from tokio-util) and a «watch» channel do the same job; you will see both.
 
-          :::review Shutdown questions for a PR
+          :::pitfall Shutdown questions
           1. Does every long-running task see the stop signal?
           2. What happens to work in flight: a half-sent frame, an unacknowledged message, a buffered log line?
           3. Does main wait for the tasks (with its own deadline), or return and drop them mid-work?
@@ -413,7 +413,7 @@ pub async fn accept_loop<A: Acceptor>(mut listener: A, mut stop: watch::Receiver
               - «Ok(_conn) = listener.accept()» is a pattern. When «accept» returned «Err», the pattern did not match, the branch switched off, and «select!» waited only for «stop». No error, no log line: the loop simply stopped accepting.
               - Binding the whole result and matching inside the arm handles both outcomes, and the loop goes round again.
               - In a real server, add a short sleep on errors like «too many open files», so the loop does not spin while the process is out of handles.
-              - The fake «Acceptor» is the test seam from module 05: a trait the real listener and the fake both implement.
+              - The fake «Acceptor» is the test seam from the Traits module: a trait the real listener and the fake both implement.
             `,
             talk: 'The select! branch used an Ok(..) pattern, so the first accept error switched it off and the loop waited only for stop. Binding the result and matching inside the arm logs the error and keeps accepting.',
           },
@@ -437,12 +437,10 @@ pub async fn accept_loop<A: Acceptor>(mut listener: A, mut stop: watch::Receiver
       },
       {
         exercise: {
-          id: 'ch-review-fanout', title: 'PR: fan inbound frames out to destination workers', kind: 'review', mins: 16, diff: 'hard', topics: ['async'],
+          id: 'ch-review-fanout', title: 'Find the bugs: fanning frames out to workers', kind: 'review', mins: 16, diff: 'hard', topics: ['async'],
           file: 'src/fanout.rs',
           statement: R`
-            **feat(fanout): broadcast inbound frames to destination workers**
-
-            > The inbound reader pushes frames into a queue; a fan-out task broadcasts them to one worker per destination. Adds «read_frame», which reads a length-prefixed frame and gives up after 30 s of silence.
+            **The change:** The inbound reader pushes frames into a queue; a fan-out task broadcasts them to one worker per destination. Adds «read_frame», which reads a length-prefixed frame and gives up after 30 s of silence.
 
             Context: every frame must reach every destination. Destinations are sometimes slow for minutes at a time. Senders are other systems on the network.
           `,

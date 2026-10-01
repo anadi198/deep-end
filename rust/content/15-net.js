@@ -2,12 +2,12 @@
   const RL = root.RL, R = RL.R;
   RL.module({
     id: 'net', title: 'Networking: accept loops, framing and dead peers', short: 'Net',
-    blurb: 'A TCP server you can trust, why one read is not one message (MLLP framing with a buffer), peers that vanish without closing, and reading «tracing» logs. Ends with a relay PR that has six planted issues.',
+    blurb: 'A TCP server you can trust, why one read is not one message (MLLP framing with a buffer), peers that vanish without closing, and reading «tracing» logs. Ends with a relay that has six bugs to find.',
     items: [
       {
         lesson: 'net-listener', title: 'An accept loop you can trust', mins: 8, hunts: ['hang', 'unbounded'],
         remember: 'A TCP server is a loop: accept, spawn a task per connection, repeat. The loop must survive accept errors, and something must cap how many connections run at once.',
-        cue: 'An accept loop in a PR → what happens on an accept error, and what limits how many connection tasks can exist?',
+        cue: 'An accept loop → what happens on an accept error, and what limits how many connection tasks can exist?',
         body: R`
           This runs for real: a server and a client on localhost, in one program.
 
@@ -54,7 +54,7 @@
           - «bind» then «accept» in a loop. «accept» gives back the new stream and the peer's address.
           - One «tokio::spawn» per connection, so a slow client does not hold up the others.
           - «into_split()» turns the stream into an owned read half and write half, so a reader and a writer can live in different tasks.
-          - The «Err» arm logs and keeps looping. Module 09 showed what happens when an accept loop cannot see its errors.
+          - The «Err» arm logs and keeps looping. The Channels module showed what happens when an accept loop cannot see its errors.
 
           @stop
 
@@ -74,7 +74,7 @@
           }
           ~~~
 
-          :::review For every accept loop
+          :::pitfall For every accept loop
           1. Does an accept error keep the loop alive, with a short pause for «too many open files»?
           2. What caps the number of connections?
           3. Does each connection task handle its own errors, and time out when the peer goes quiet (lesson 3)?
@@ -130,7 +130,7 @@
           }
           ~~~
 
-          The three things every frame parser must get right, and every one of them was a planted bug in module 04's PR:
+          The three things every frame parser must get right, and every one of them was a bug in the Errors module's find-the-bugs exercise:
 
           1. **Half a frame** returns «Ok(None)» and waits; it never panics.
           2. **Junk** before a start byte is skipped, so the buffer cannot fill with garbage.
@@ -141,7 +141,7 @@
           ## In real code
 
           - «stream.read_buf(&mut buf).await» appends whatever arrived to the «BytesMut». It is cancel-safe: if a «select!» drops it, nothing is lost, because the bytes live in «buf», outside the future.
-          - «tokio_util::codec» packages this pattern: «impl Decoder for MllpCodec { fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Frame>, Error> }», and «Framed::new(stream, MllpCodec)» turns a socket into a stream of frames. When a PR has a «Decoder», it is the function above with a fixed signature. Check the same three things.
+          - «tokio_util::codec» packages this pattern: «impl Decoder for MllpCodec { fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Frame>, Error> }», and «Framed::new(stream, MllpCodec)» turns a socket into a stream of frames. A «Decoder» is the function above with a fixed signature. Check the same three things.
         `,
         predict: [
           {
@@ -187,7 +187,7 @@
           Two ways to notice a dead peer:
 
           - **An application timeout** like the one above: simple, and it also catches peers that are alive but stuck.
-          - **TCP keepalive**: the operating system probes an idle connection and reports it dead when the probes go unanswered. Set with the «socket2» crate: «SockRef::from(&stream).set_tcp_keepalive(..)». Detection time is roughly idle time plus interval times retries, so check the numbers in the PR.
+          - **TCP keepalive**: the operating system probes an idle connection and reports it dead when the probes go unanswered. Set with the «socket2» crate: «SockRef::from(&stream).set_tcp_keepalive(..)». Detection time is roughly idle time plus interval times retries, so work the numbers out for your own settings.
 
           @stop
 
@@ -211,8 +211,8 @@
 
           Real code adds a little random jitter so a hundred clients do not all retry in the same second.
 
-          :::review Listener or dialer?
-          A **listener** (the side that accepts) cannot reconnect anything: it can only notice silence and free the slot, and it depends on the peer dialling back. A **dialer** (the side that connects out) should retry with capped backoff, including when the very first connection attempt fails. Ask which side the PR is, and whether it behaves like that side.
+          :::pitfall Listener or dialer?
+          A **listener** (the side that accepts) cannot reconnect anything: it can only notice silence and free the slot, and it depends on the peer dialling back. A **dialer** (the side that connects out) should retry with capped backoff, including when the very first connection attempt fails. Know which side your code is, and make it behave like that side.
           :::
         `,
       },
@@ -243,9 +243,9 @@
           | «#[instrument]» on a function | a span per call, with the arguments as fields |
           | «RUST_LOG=info,my_crate=debug» | the level filter, set at startup |
 
-          :::review Two tracing slips worth a comment
+          :::pitfall Two tracing slips
           - «span.enter()» inside an «async fn», with the guard held across an «.await»: the span leaks into other tasks' log lines. Async code should use «#[instrument]» or «.instrument(span)» instead.
-          - Log levels: an «error!» that fires on every expected disconnect drowns the real errors (and any alerts built on them). Ask what the level is for.
+          - Log levels: an «error!» that fires on every expected disconnect drowns the real errors (and any alerts built on them). Pick the level on purpose.
           :::
         `,
       },
@@ -418,14 +418,12 @@ pub async fn serve_connection<S: AsyncRead + AsyncWrite + Unpin>(mut stream: S) 
       },
       {
         exercise: {
-          id: 'net-review-relay', title: 'PR: an MLLP relay (the phase 2 capstone)', kind: 'review', mins: 20, diff: 'hard', topics: ['networking'],
+          id: 'net-review-relay', title: 'Find the bugs: an MLLP relay', kind: 'review', mins: 20, diff: 'hard', topics: ['networking'],
           file: 'src/relay.rs',
           statement: R`
-            **feat(relay): accept MLLP connections and forward to downstream**
+            **The change:** A small relay: accepts connections from senders, ACKs each message, and forwards it to a single downstream connection. Stops when the stop signal fires. Tested locally with the test sender: 1,000 messages relayed.
 
-            > A small relay: accepts connections from senders, ACKs each message, and forwards it to a single downstream connection. Stops when the stop signal fires. Tested locally with the test sender: 1,000 messages relayed.
-
-            Context: senders are hospital systems over VPNs; an ACK tells a sender it may delete its copy of the message; the downstream is sometimes slow or restarting. Everything from modules 08 to 10 applies.
+            Context: senders are hospital systems over VPNs; an ACK tells a sender it may delete its copy of the message; the downstream is sometimes slow or restarting. Everything from the Async, Channels and Networking modules applies.
           `,
           code: R`
 use std::sync::Arc;
@@ -462,13 +460,13 @@ use tokio::sync::{watch, Mutex};
           issues: [
             {
               id: 'a', tag: 'hang', title: 'One accept error and the relay stops accepting, silently',
-              why: 'The «Ok(..)» pattern switches this branch off the first time «accept» fails (for example «too many open files»). «select!» then waits only for the stop signal. The relay stays up and bound, and accepts nothing until someone restarts it (module 09).',
+              why: 'The «Ok(..)» pattern switches this branch off the first time «accept» fails (for example «too many open files»). «select!» then waits only for the stop signal. The relay stays up and bound, and accepts nothing until someone restarts it (the Channels module).',
               fix: '«res = listener.accept() => match res { Ok(..) => .., Err(e) => { log; short sleep } }».',
             },
             {
               id: 'b', tag: 'unbounded', title: 'Unlimited connection tasks, and nobody watching them',
               why: 'Every connection gets a task, with no cap and no kept handle. A reconnect storm or a sender leaking connections grows the task count and memory without limit, and a panicking handler vanishes without a trace.',
-              fix: 'A semaphore permit per connection (module 10, lesson 1) and a «JoinSet», or at least logging when a handler ends with an error.',
+              fix: 'A semaphore permit per connection (the Networking module, lesson 1) and a «JoinSet», or at least logging when a handler ends with an error.',
             },
             {
               id: 'c', tag: 'hang', title: 'A vanished sender holds its slot forever',
@@ -498,7 +496,7 @@ use tokio::sync::{watch, Mutex};
             { id: 'd2', why: 'A tokio «Mutex» around the one downstream socket is right: it stops two connections interleaving their bytes, and it is meant to be held across the write\'s «.await». Its danger is only a write with no timeout, which is the same fix as the other hang issues.' },
           ],
           hints: [
-            'Six issues. One is an old friend from module 09\'s «select!» lesson.',
+            'Six issues. One is an old friend from the Channels module\'s «select!» lesson.',
             'Think about the sender\'s side: what does an ACK promise, and when does this code send it?',
             'Then TCP itself: message boundaries, and peers that vanish without closing.',
           ],

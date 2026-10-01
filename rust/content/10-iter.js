@@ -2,7 +2,7 @@
   const RL = root.RL, R = RL.R;
   RL.module({
     id: 'iter', title: 'Iterators and closures: streams that cost nothing', short: 'Iter',
-    blurb: 'Iterator chains read like Java streams. Learn the three ways a chain starts, the adapters worth recognising, «collect» into «Result», and closures with «move».',
+    blurb: 'Iterator chains read like Java streams. The three ways a chain starts, the adapters you will use most, «collect» into «Result», closures and «move», and the «Iterator» and «Fn» traits underneath.',
     items: [
       {
         lesson: 'it-streams', title: 'Iterators are Java streams, but lazy and free', mins: 7,
@@ -64,7 +64,7 @@
         ],
       },
       {
-        lesson: 'it-adapters', title: 'The adapters worth recognising', mins: 8, hunts: ['swallow'],
+        lesson: 'it-adapters', title: 'The adapters you will use most', mins: 8, hunts: ['swallow'],
         remember: '«collect()» builds whatever type the code asks for: a «Vec», a «HashMap», a «String», or a «Result<Vec<_>, _>» that stops at the first error.',
         cue: '«filter_map(|x| x.parse().ok())» on outside data → bad items vanish without a trace; «collect::<Result<Vec<_>, _>>()» fails on the first one instead',
         body: R`
@@ -81,7 +81,7 @@
           | «sum», «count», «min», «max», «fold» | reduce to one value | same, «reduce» |
           | «collect» | build a collection | «collect(...)» |
 
-          On slices you also meet «windows(n)» (overlapping runs, as in module 04's frame parser) and «chunks(n)».
+          On slices you also meet «windows(n)» (overlapping runs, as in the Errors module's frame parser) and «chunks(n)».
 
           ~~~rust !run
           fn main() {
@@ -113,8 +113,8 @@
 
           @predict 0
 
-          :::review «.ok()» inside an iterator
-          Dropping unparseable items is right when the requirement says so ("skip non-numeric results"). It is a swallowed error when the input is a list someone typed: a retry list, a set of ports, ids from a config file. Ask which one this is.
+          :::pitfall «.ok()» inside an iterator
+          Dropping unparseable items is right when the requirement says so ("skip non-numeric results"). It is a swallowed error when the input is a list someone typed: a retry list, a set of ports, ids from a config file. Know which one you have.
           :::
         `,
         predict: [
@@ -140,7 +140,7 @@
           | «\|a, b\| { ... }» | «(a, b) -> { ... }» |
           | «move \|\| ...» | (no equivalent: the closure takes ownership of what it uses) |
 
-          A closure borrows the variables it mentions, following module 03's rules. So it can even change them:
+          A closure borrows the variables it mentions, following the Borrowing module's rules. So it can even change them:
 
           @predict 0
 
@@ -163,11 +163,11 @@
           }
           ~~~
 
-          Each thread needs its own handle, so the code clones the «Arc» (cheap: a counter) under the same name, then «move»s that clone into the closure. You will see this exact shape before every «tokio::spawn» in module 08.
+          Each thread needs its own handle, so the code clones the «Arc» (cheap: a counter) under the same name, then «move»s that clone into the closure. You will see this exact shape before every «tokio::spawn» in the Async module.
 
           @stop
 
-          ## «Fn», «FnMut», «FnOnce»: recognition only
+          ## «Fn», «FnMut», «FnOnce»
 
           | Bound | The closure | Seen in |
           |---|---|---|
@@ -183,7 +183,121 @@
             code: 'fn main() {\n    let mut count = 0;\n    let mut bump = || count += 1;\n    bump();\n    bump();\n    println!("{count}");\n}',
             options: ['0', '2', 'Compile error'],
             answer: 1,
-            why: '«bump» borrows «count» mutably for as long as it is used. Its last use is the second call, so by the «println!» the borrow is over (module 03: a borrow lasts until its last use).',
+            why: '«bump» borrows «count» mutably for as long as it is used. Its last use is the second call, so by the «println!» the borrow is over (the Borrowing module: a borrow lasts until its last use).',
+          },
+        ],
+      },
+      {
+        lesson: 'it-traits', title: 'The «Iterator» and «Fn» traits, precisely', mins: 7,
+        remember: '«Iterator» has one required method, «fn next(&mut self) -> Option<Self::Item>», and every adapter is built on it; «for» calls «IntoIterator::into_iter». A closure implements «FnOnce», «FnMut» or «Fn» according to what it does with the values it captured.',
+        cue: '«impl Iterator for X» → only «next» is written; «map», «filter», «sum» and the rest come with the trait',
+        body: R`
+          ~~~rust
+          pub trait Iterator {
+              type Item;
+              fn next(&mut self) -> Option<Self::Item>;
+              // about 75 provided methods: map, filter, fold, sum, collect, ...
+          }
+
+          pub trait IntoIterator {
+              type Item;
+              type IntoIter: Iterator<Item = Self::Item>;
+              fn into_iter(self) -> Self::IntoIter;
+          }
+          ~~~
+
+          The rules:
+
+          1. An iterator yields «Some(item)» until it returns «None». Adapters («map», «filter») wrap it and do nothing until something calls «next»: a chain with no consumer («collect», «sum», «for», «count») does no work at all.
+          2. «for PATTERN in EXPRESSION» is «let mut it = IntoIterator::into_iter(EXPRESSION); while let Some(PATTERN) = it.next() { ... }».
+          3. A collection implements «IntoIterator» three times, which is where the three loop forms come from:
+
+          | Expression | Implementation | Items |
+          |---|---|---|
+          | «v» | «IntoIterator for Vec<T>» | «T», and «v» is consumed |
+          | «&v» | «IntoIterator for &Vec<T>» | «&T» |
+          | «&mut v» | «IntoIterator for &mut Vec<T>» | «&mut T» |
+
+          ~~~rust !run
+          struct Countdown {
+              from: u32,
+          }
+
+          impl Iterator for Countdown {
+              type Item = u32;
+
+              fn next(&mut self) -> Option<u32> {
+                  if self.from == 0 {
+                      return None;
+                  }
+                  self.from -= 1;
+                  Some(self.from + 1)
+              }
+          }
+
+          fn main() {
+              for n in (Countdown { from: 3 }) {
+                  print!("{n} ");
+              }
+              println!();
+              let evens: Vec<u32> = Countdown { from: 10 }.filter(|n| n % 2 == 0).collect();
+              println!("{evens:?} {}", Countdown { from: 4 }.sum::<u32>());
+          }
+          ~~~
+
+          The parentheses in the «for» head are required: a struct literal cannot appear directly after «for ... in», «if», «while» or «match», because the parser would take its opening brace for the start of the body.
+
+          @stop
+
+          ## The closure traits
+
+          | Trait | The closure | Can be called |
+          |---|---|---|
+          | «FnOnce» | may move captured values out | once |
+          | «FnMut» | may change what it captured, moves nothing out | many times, needs «&mut» access |
+          | «Fn» | only reads what it captured | many times, even shared between threads |
+
+          Every closure implements «FnOnce»; one that moves nothing out also implements «FnMut»; one that also changes nothing implements «Fn». So a function that asks for «impl FnOnce» accepts any closure, and one that asks for «impl Fn» accepts the fewest.
+
+          - A closure captures each variable in the least demanding way its body allows: by «&», then by «&mut», then by value. «move» forces capture by value for every variable it mentions.
+          - Plain functions («fn double(x: u32) -> u32») implement all three.
+
+          ~~~rust !run
+          fn apply_twice(mut f: impl FnMut() -> u32) -> u32 {
+              f() + f()
+          }
+
+          fn call_once(f: impl FnOnce() -> String) -> String {
+              f()
+          }
+
+          fn main() {
+              let mut calls = 0;
+              println!("{}", apply_twice(|| {
+                  calls += 1;
+                  calls
+              }));
+
+              let route = String::from("lab-a");
+              println!("{}", call_once(move || route + "-backup"));
+          }
+          ~~~
+
+          @predict 0
+        `,
+        predict: [
+          {
+            q: 'The closure returns a captured «String». What happens on the second call?',
+            code: R`fn main() {
+    let name = String::from("lab-a");
+    let give = move || name;
+    let a = give();
+    let b = give();
+    println!("{a} {b}");
+}`,
+            options: ['lab-a lab-a', 'lab-a (then an empty line)', 'Compile error'],
+            answer: 2, error: 'E0382',
+            why: 'Returning «name» moves it out of the closure, so the closure is only «FnOnce», and calling it consumes it: "use of moved value: give". Returning «name.clone()» would make it «Fn».',
           },
         ],
       },
@@ -284,12 +398,10 @@ pub fn parse_ports(list: &str) -> Result<Vec<u16>, std::num::ParseIntError> {
       },
       {
         exercise: {
-          id: 'it-review-batch', title: 'PR: batch summary helpers', kind: 'review', mins: 12, diff: 'easy', topics: ['iterators'],
+          id: 'it-review-batch', title: 'Find the bugs: batch summary helpers', kind: 'review', mins: 12, diff: 'easy', topics: ['iterators'],
           file: 'src/batch.rs',
           statement: R`
-            **feat(batch): summary helpers for the batch view**
-
-            > Adds helpers for the batch page: counts per message kind and total bytes, the ids from the manual retry box, the oldest messages, and a "has large messages" flag.
+            **The change:** Adds helpers for the batch page: counts per message kind and total bytes, the ids from the manual retry box, the oldest messages, and a "has large messages" flag.
 
             Context: a batch holds up to 500 messages of up to 4 MB each. The retry box is a text field operators type ids into.
           `,

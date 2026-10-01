@@ -1,4 +1,4 @@
-/* Rust Lab: routing, outline, lessons, exercises, code panel, grading, PR reviews, progress. */
+/* Rust Lab: routing, outline, lessons, exercises, code panel, grading, find-the-bugs exercises, progress. */
 (function () {
   'use strict';
   const H = window.RustHarness, RL = window.RL, V = window.RustViz, HL = window.RustHighlight, E = window.RustEngine;
@@ -45,7 +45,7 @@
   const hrefOf = (it) => (it.kind === 'lesson' ? `#/l/${it.id}` : `#/x/${it.id}`);
   const isDone = (id) => !!(S.done[id] || S.read[id]);
   const itemMins = (it) => it.data.mins || (it.kind === 'lesson' ? 6 : 10);
-  const kindLabel = (x) => ({ fix: 'Fix', build: 'Build', review: 'Review a PR' }[x.kind] || 'Exercise');
+  const kindLabel = (x) => ({ fix: 'Fix', build: 'Build', review: 'Find the bugs' }[x.kind] || 'Exercise');
 
   /* ───────────── Mini Markdown ───────────── */
   function inline(s) {
@@ -211,7 +211,7 @@
     return `<div class="hcard h-${esc(t)}"><div class="hc-top">${tagChip(t)}<span class="grp">${esc(GROUPS[h.group].label)}</span></div><p>${inline(h.one)}</p><p class="cue"><b>Cue:</b> ${inline(h.cue)}</p></div>`;
   }
   function huntsHtml() {
-    return `<div class="hunt-groups">${Object.entries(GROUPS).map(([g, gr]) => `<div class="hgroup ${g}"><b>${esc(gr.label)}</b><span>${inline(gr.one)}</span><div>${Object.keys(TAGS).filter((t) => TAGS[t].group === g).map((t) => tagChip(t)).join('')}</div></div>`).join('')}</div><p class="small"><a href="#/hunts">Open the review map →</a></p>`;
+    return `<div class="hunt-groups">${Object.entries(GROUPS).map(([g, gr]) => `<div class="hgroup ${g}"><b>${esc(gr.label)}</b><span>${inline(gr.one)}</span><div>${Object.keys(TAGS).filter((t) => TAGS[t].group === g).map((t) => tagChip(t)).join('')}</div></div>`).join('')}</div><p class="small"><a href="#/hunts">All eight kinds of bug →</a></p>`;
   }
   function quizHtml(q, qid) {
     const chosen = S.quiz[qid] ? S.quiz[qid].pick : undefined;
@@ -224,11 +224,11 @@
     const rec = OUT[s.key];
     return `<div class="quiz predict" data-qid="${esc(qid)}"><p class="q"><span class="qt">Predict</span><span>${inline(p.q || 'What happens when this runs?')}</span></p><div class="codeblock lang-rust mini"><pre>${HL.rust(s.shown)}</pre></div><div class="opts">${p.options.map((o, k) => `<label class="${chosen !== undefined ? (k === p.answer ? 'right' : k === chosen ? 'wrong' : '') : ''}"><input type="radio" name="${esc(qid)}" value="${k}" ${chosen === k ? 'checked' : ''} ${chosen !== undefined ? 'disabled' : ''}><span>${/\n/.test(o) ? `<code class="multi">${esc(o)}</code>` : inline(o)}</span></label>`).join('')}</div><div class="why" ${chosen === undefined ? 'hidden' : ''}>${md(p.why)}${rec ? `<div class="cb-out">${outputHtml(rec, 'run')}</div>` : ''}</div></div>`;
   }
-  // A review issue's demo: a test the build proved fails on the PR code.
+  // A bug's demo: a test the build proved fails on the exercise code.
   function demoHtml(is) {
     if (!is.demo) return '';
     const rec = OUT[H.key('demo', is.demo)];
-    return `<details class="demo"><summary>A test that exposes it</summary><pre class="tcode">${HL.rust(is.demo)}</pre>${rec && rec.e ? `<div class="out panic"><small>On this PR it fails with</small><pre class="rustc">${HL.rustc(rec.e)}</pre></div>` : ''}</details>`;
+    return `<details class="demo"><summary>A test that exposes it</summary><pre class="tcode">${HL.rust(is.demo)}</pre>${rec && rec.e ? `<div class="out panic"><small>On this code it fails with</small><pre class="rustc">${HL.rustc(rec.e)}</pre></div>` : ''}</details>`;
   }
   const predictOf = (qid) => { const [, lid, n] = qid.split(':'); return ((LESSON[lid] || {}).predict || [])[+n]; };
   const quizOf = (qid) => { const [lid, n] = qid.split(':'); return (((LESSON[lid] || {}).quiz) || (PAGES.quizFor && PAGES.quizFor(lid)) || [])[+n]; };
@@ -355,7 +355,7 @@
   const TOP_LINKS = [
     ['#/', '⌂', 'Home'],
     ['#/today', '☀', 'Today (5 min)'],
-    ['#/hunts', '◈', 'Review map'],
+    ['#/hunts', '◈', 'Bug kinds'],
     ['#/drill', '◎', 'Recognition drill'],
     ['#/cheats', '▦', 'Cheat sheets'],
   ];
@@ -373,7 +373,7 @@
       for (const u of m.units) {
         const isL = LESSON[u.id] === u;
         if (isL) html += `<li><a class="item ${active === u.id ? 'active' : ''}" href="#/l/${u.id}"><span class="st lesson ${S.read[u.id] ? 'read' : ''}">${S.read[u.id] ? '✓' : '▤'}</span><span>${esc(u.title.replace(/[«»]/g, ''))}</span><span class="lvl">${u.mins || 6}m</span></a></li>`;
-        else html += `<li><a class="item ${active === u.id ? 'active' : ''}" href="#/x/${u.id}"><span class="st dot ${u.diff || 'easy'} ${S.done[u.id] ? 'solved' : ''}"></span><span>${esc(u.title)}</span><span class="lvl">${u.kind === 'review' ? 'PR' : u.kind === 'fix' ? 'fix' : 'build'}</span></a></li>`;
+        else html += `<li><a class="item ${active === u.id ? 'active' : ''}" href="#/x/${u.id}"><span class="st dot ${u.diff || 'easy'} ${S.done[u.id] ? 'solved' : ''}"></span><span>${esc(u.title)}</span><span class="lvl">${u.kind === 'review' ? 'bugs' : u.kind === 'fix' ? 'fix' : 'build'}</span></a></li>`;
       }
       html += '</ul></div>';
     }
@@ -429,7 +429,7 @@
     navScrolled = same;
     renderNav(); renderChips();
     const plain = (s) => String(s).replace(/[«»]/g, '');
-    document.title = (ROUTE.view === 'exercise' ? EX[ROUTE.id].title : ROUTE.view === 'lesson' ? plain(LESSON[ROUTE.id].title) : ROUTE.view === 'module' ? MOD[ROUTE.id].title : 'Read and review Rust') + ' · Rust Lab';
+    document.title = (ROUTE.view === 'exercise' ? EX[ROUTE.id].title : ROUTE.view === 'lesson' ? plain(LESSON[ROUTE.id].title) : ROUTE.view === 'module' ? MOD[ROUTE.id].title : 'Rust, from the ground up') + ' · Rust Lab';
   }
   window.addEventListener('hashchange', route);
 
@@ -562,19 +562,19 @@
     CUR = x;
     const done = !!S.done[x.id];
     const review = x.kind === 'review';
-    const tabs = [['task', review ? 'The PR' : 'Task'], ['hints', `Hints<span class="n">${x.hints ? x.hints.length : 0}</span>`], ['solution', review ? 'Answers' : 'Solution']];
+    const tabs = [['task', 'Task'], ['hints', `Hints<span class="n">${x.hints ? x.hints.length : 0}</span>`], ['solution', review ? 'Answers' : 'Solution']];
     const m = x.module;
     el.reader.innerHTML = `
       <div class="eyebrow"><a href="#/m/${m.id}">${String(m.n).padStart(2, '0')} · ${esc(m.title)}</a><span class="meta">${esc(kindLabel(x))} · about ${x.mins || 10} min</span></div>
       ${unitBar(m, x.id)}
       <h1>${esc(x.title)}</h1>
-      <div class="p-head"><span class="diff ${x.diff || 'easy'}">${x.diff || 'easy'}</span><span class="tag">${esc(kindLabel(x))}</span>${review ? `<span class="tag">${(x.issues || []).length} planted issue${(x.issues || []).length === 1 ? '' : 's'}</span>` : ''}${done ? '<span class="solved-pill">✓ Done</span>' : ''}</div>
+      <div class="p-head"><span class="diff ${x.diff || 'easy'}">${x.diff || 'easy'}</span><span class="tag">${esc(kindLabel(x))}</span>${review ? `<span class="tag">${(x.issues || []).length} bug${(x.issues || []).length === 1 ? '' : 's'} to find</span>` : ''}${done ? '<span class="solved-pill">✓ Done</span>' : ''}</div>
       <div class="p-tabs" role="tablist">${tabs.map(([k, t]) => `<button data-pt="${k}" role="tab">${t}</button>`).join('')}</div>
       <section data-panel="task">
         <div class="statement prose">${md(x.statement, { exercise: x })}</div>
         <div class="section-h">How to work it</div>
         <p class="howto">${review
-          ? `Read the PR on the right like a reviewer. <b>Click a line</b> you would comment on and pick which hunt it is (keys <b>1</b> to <b>8</b>). <b>Submit review</b> tells you what you found and what you missed. <b>Clippy</b> shows what Rust's linter says, for comparison.`
+          ? `The code is on the right, with the new lines marked. <b>Click a line</b> that has a bug and pick which kind of bug it is (keys <b>1</b> to <b>8</b>). <b>Check</b> tells you what you found and what you missed. <b>Clippy</b> shows what Rust's linter says, for comparison.`
           : `<b>Run</b> checks the ${(x.tests || []).filter((t) => t.ex).length} visible tests; <b>Submit</b> runs all ${(x.tests || []).length}. Code runs on the Rust Playground, so each run takes a few seconds.`} Stuck for 10 minutes? Open one hint.</p>
         ${review ? `<div class="hunt-mini">${Object.keys(TAGS).map((t) => tagChip(t)).join('')}</div>` : ''}
         ${nextCard(x.id)}
@@ -623,11 +623,11 @@
     sec.dataset.done = 1;
     if (x.kind === 'review') {
       sec.innerHTML = `<div class="prose">
-        <h2>The planted issues</h2>
+        <h2>The bugs</h2>
         ${x.issues.map((is) => `<div class="issue"><div class="is-top">${tagChip(is.tag)}<span class="small">line${(x.parsed.marks[is.id] || []).length > 1 ? 's' : ''} ${(x.parsed.marks[is.id] || []).join(', ')}</span></div><h3>${inline(is.title)}</h3>${md(is.why)}${is.fix ? `<div class="fix"><b>Fix</b>${md(is.fix)}</div>` : ''}${demoHtml(is)}</div>`).join('')}
         ${(x.decoys || []).length ? `<h2>Looks wrong, but is fine</h2>${x.decoys.map((d) => `<div class="issue decoy"><div class="is-top"><span class="small">line ${(x.parsed.marks[d.id] || []).join(', ')}</span></div>${md(d.why)}</div>`).join('')}` : ''}
         ${s.fixed ? `<h2>The file with every fix</h2>${codeBlock(s.fixed.trim(), { lang: 'rust', label: x.file || 'src/lib.rs' })}` : ''}
-        ${s.talk ? `<div class="callout review"><b>Say it in the review</b>${md(s.talk)}</div>` : ''}
+        ${s.talk ? `<div class="callout key"><b>In one paragraph</b>${md(s.talk)}</div>` : ''}
       </div>`;
     } else {
       sec.innerHTML = `
@@ -688,13 +688,13 @@
     diffBox.hidden = !review;
     el.code.classList.toggle('reviewing', review);
     if (review) {
-      el.fileTabs.innerHTML = `<button class="on">${esc(x.file || 'src/lib.rs')}</button><span class="pr-badge">pull request · ${x.parsed.lines.filter((l) => l.added).length} lines added</span>`;
+      el.fileTabs.innerHTML = `<button class="on">${esc(x.file || 'src/lib.rs')}</button><span class="pr-badge">${x.parsed.lines.filter((l) => l.added).length} new lines, marked +</span>`;
       el.run.innerHTML = 'Clippy';
-      el.run.title = 'What Rust\'s linter says about this PR';
-      el.submit.innerHTML = 'Submit review <span class="k">⇧⌘↵</span>';
+      el.run.title = 'What Rust\'s linter says about this code';
+      el.submit.innerHTML = 'Check <span class="k">⇧⌘↵</span>';
       el.reset.textContent = 'Clear flags';
       el.reset.title = 'Remove every flag you placed';
-      el.codeHint.innerHTML = 'Click a line to flag it · keys <b>1</b> to <b>8</b> pick the hunt';
+      el.codeHint.innerHTML = 'Click a line to flag it · keys <b>1</b> to <b>8</b> pick the kind of bug';
       paintDiff();
     } else {
       const d = S.drafts[x.id];
@@ -718,7 +718,7 @@
   el.reset.onclick = () => {
     if (!CUR) return;
     if (CUR.kind === 'review') {
-      modal('Clear every flag?', '<p>Removes all the lines you flagged on this PR.</p>', [{ label: 'Clear', primary: true, fn: () => { delete S.drafts[CUR.id]; delete LAST[CUR.id]; save(); paintDiff(); el.resBody.innerHTML = reviewDraftHtml(CUR); } }]);
+      modal('Clear every flag?', '<p>Removes all the lines you flagged in this exercise.</p>', [{ label: 'Clear', primary: true, fn: () => { delete S.drafts[CUR.id]; delete LAST[CUR.id]; save(); paintDiff(); el.resBody.innerHTML = reviewDraftHtml(CUR); } }]);
       return;
     }
     modal('Reset to the starter code?', '<p>Your current code for this exercise is replaced by the starter code.</p>', [{ label: 'Reset', primary: true, fn: () => { setCode(starterFor(CUR)); delete S.drafts[CUR.id]; save(); } }]);
@@ -829,7 +829,7 @@
     if (f) { const row = $(`.rv-line[data-n="${f.dataset.goto}"]`, diffBox); if (row) { row.scrollIntoView({ block: 'center' }); row.classList.add('pulse'); setTimeout(() => row.classList.remove('pulse'), 900); } }
   });
 
-  /* ───────────── PR review: flag lines, pick a hunt, get graded ───────────── */
+  /* ───────────── Find the bugs: flag lines, pick the kind of bug, get graded ───────────── */
   const flagsOf = (x) => ((S.drafts[x.id] && S.drafts[x.id].flags) || {});
   function paintDiff() {
     const x = CUR; if (!x || x.kind !== 'review') return;
@@ -873,14 +873,14 @@
   function reviewDraftHtml(x) {
     const flags = flagsOf(x);
     const ns = Object.keys(flags).map(Number).sort((a, b) => a - b);
-    if (!ns.length) return `<div class="res-empty"><div>Read the PR the way you would at work. When a line deserves a comment, <b>click it</b> and pick the hunt.</div><div>There ${x.issues.length === 1 ? 'is 1 planted issue' : `are ${x.issues.length} planted issues`}. Some lines only look suspicious.</div></div>`;
-    return `<div class="res-note">Your review so far: ${ns.length} line${ns.length === 1 ? '' : 's'} flagged. <b>Submit review</b> when you are done.</div><ul class="flag-list">${ns.map((n) => `<li data-goto="${n}"><span class="ln">line ${n}</span>${tagChip(flags[n])}<code>${HL.rust(x.parsed.lines[n - 1].text.trim())}</code></li>`).join('')}</ul>`;
+    if (!ns.length) return `<div class="res-empty"><div>Find the bugs. When a line has one, <b>click it</b> and pick the kind of bug.</div><div>There ${x.issues.length === 1 ? 'is 1 bug' : `are ${x.issues.length} bugs`}. Some lines only look suspicious.</div></div>`;
+    return `<div class="res-note">So far: ${ns.length} line${ns.length === 1 ? '' : 's'} flagged. <b>Check</b> when you are done.</div><ul class="flag-list">${ns.map((n) => `<li data-goto="${n}"><span class="ln">line ${n}</span>${tagChip(flags[n])}<code>${HL.rust(x.parsed.lines[n - 1].text.trim())}</code></li>`).join('')}</ul>`;
   }
   function submitReview() {
     const x = CUR;
     if (narrow()) setMobileTab('code');
     const flags = flagsOf(x);
-    if (!Object.keys(flags).length) { toast('Flag at least one line first: click it in the PR.'); return; }
+    if (!Object.keys(flags).length) { toast('Flag at least one line first: click it in the code.'); return; }
     const g = H.gradeReview(x, x.parsed, flags);
     LAST_GRADE[x.id] = g;
     S.tries[x.id] = (S.tries[x.id] || 0) + 1; save();
@@ -894,12 +894,12 @@
     const found = g.issues.filter((i) => i.found).map((i) => {
       const is = byId[i.id];
       const said = i.flagged.map((n) => flags[n]);
-      return `<div class="issue found"><div class="is-top">${tagChip(is.tag)}${i.tagOk ? '<span class="ok-tag">✓ right hunt</span>' : `<span class="small">you said ${said.map((t) => esc(TAGS[t].label)).join(', ')}</span>`}<button class="btn sm quiet" data-goto="${i.lines[0]}">line ${i.lines.join(', ')}</button></div><h3>${inline(is.title)}</h3>${md(is.why)}${is.fix ? `<div class="fix"><b>Fix</b>${md(is.fix)}</div>` : ''}${demoHtml(is)}</div>`;
+      return `<div class="issue found"><div class="is-top">${tagChip(is.tag)}${i.tagOk ? '<span class="ok-tag">✓ right kind</span>' : `<span class="small">you said ${said.map((t) => esc(TAGS[t].label)).join(', ')}</span>`}<button class="btn sm quiet" data-goto="${i.lines[0]}">line ${i.lines.join(', ')}</button></div><h3>${inline(is.title)}</h3>${md(is.why)}${is.fix ? `<div class="fix"><b>Fix</b>${md(is.fix)}</div>` : ''}${demoHtml(is)}</div>`;
     }).join('');
     const hidden = missed.length ? `<div class="issue missed"><b>${missed.length} still hidden.</b> ${missed.map((i) => `One is ${tagChip(byId[i.id].tag)}.`).join(' ')} Flag more lines and submit again, or open <b>Answers</b> on the left.</div>` : '';
     const alarms = g.falseAlarms.map((f) => f.decoy
       ? `<div class="issue decoy"><div class="is-top"><button class="btn sm quiet" data-goto="${f.n}">line ${f.n}</button><span class="small">looks suspicious, but it is fine</span></div>${md(decoy[f.decoy].why)}</div>`
-      : `<div class="issue decoy"><div class="is-top"><button class="btn sm quiet" data-goto="${f.n}">line ${f.n}</button><span class="small">nothing planted here</span></div><p class="small">If you would still comment on it at work, that is fine. It is just not one of the planted issues.</p></div>`).join('');
+      : `<div class="issue decoy"><div class="is-top"><button class="btn sm quiet" data-goto="${f.n}">line ${f.n}</button><span class="small">no bug here</span></div><p class="small">If you would still comment on it at work, that is fine. It is just not one of the bugs in this exercise.</p></div>`).join('');
     const html = `${verdict}${many ? '<div class="res-note">That is a lot of flags. Flag what you would actually comment on; flagging everything teaches nothing.</div>' : ''}${found}${hidden}${alarms ? `<div class="section-h">Your other flags</div>${alarms}` : ''}`;
     el.resBody.innerHTML = html;
     LAST[x.id] = html;
@@ -917,7 +917,7 @@
       rec = H.record(o);
       running = false; renderEngine();
     }
-    el.resBody.innerHTML = `<div class="res-note"><b>Clippy</b> is Rust's linter. It catches style slips and some bugs. Compare what it says with what you flagged: the planted issues are the kind a linter cannot judge.</div>${outputHtml(rec, 'clippy')}<p><button class="btn sm" data-back>Back to your review</button></p>`;
+    el.resBody.innerHTML = `<div class="res-note"><b>Clippy</b> is Rust's linter. It catches style slips and some bugs. Compare what it says with what you flagged: the bugs here are the kind a linter cannot judge.</div>${outputHtml(rec, 'clippy')}<p><button class="btn sm" data-back>Back to your answers</button></p>`;
     $('[data-back]', el.resBody).onclick = () => { el.resBody.innerHTML = LAST[x.id] || reviewDraftHtml(x); };
   }
 
@@ -934,7 +934,7 @@
     renderNav(); renderChips();
     const pill = $('.p-head', el.reader);
     if (pill && !$('.solved-pill', pill)) pill.insertAdjacentHTML('beforeend', '<span class="solved-pill">✓ Done</span>');
-    if (first) { confetti(); toast(how === 'review' ? 'Every planted issue found. Marked as done.' : 'Done! Next step is linked under the task.'); }
+    if (first) { confetti(); toast(how === 'review' ? 'Every bug found. Marked as done.' : 'Done! Next step is linked under the task.'); }
   }
   function confetti() {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;

@@ -9,7 +9,7 @@
         remember: '«Arc<T>» lets several owners share one value; cloning an «Arc» only bumps a counter, and the value is freed when the last owner drops it.',
         cue: '«Arc::clone(&x)» right before a spawn → normal: each thread or task gets its own handle to the same data',
         body: R`
-          Module 02's rule was one owner per value. «Arc» ("atomically reference counted") is the sanctioned exception: many owners, one value, freed when the count reaches zero. It is the closest thing Rust has to an ordinary Java reference.
+          The Ownership module's rule was one owner per value. «Arc» ("atomically reference counted") is the sanctioned exception: many owners, one value, freed when the count reaches zero. It is the closest thing Rust has to an ordinary Java reference.
 
           ~~~rust !run
           use std::sync::Arc;
@@ -30,7 +30,7 @@
 
           ## Shared means read-only
 
-          An «Arc» hands out shared access, and module 03 said shared means read-only. To change shared data, something inside has to allow it safely: a lock or an atomic.
+          An «Arc» hands out shared access, and the Borrowing module said shared means read-only. To change shared data, something inside has to allow it safely: a lock or an atomic.
 
           ~~~rust !fail
           use std::sync::Arc;
@@ -101,7 +101,7 @@
           ~~~
 
           - «.lock().unwrap()» only fails if another thread panicked while holding the lock (the lock is "poisoned"). It is the accepted idiom.
-          - «RwLock» allows many readers or one writer: module 03's rule, checked at run time, across threads.
+          - «RwLock» allows many readers or one writer: the Borrowing module's rule, checked at run time, across threads.
           - For one number, an atomic needs no lock: «AtomicU64::fetch_add(1, Ordering::Relaxed)». «Relaxed» is right for counters; for anything else, ask what ordering the author needs and why.
 
           @stop
@@ -112,7 +112,7 @@
 
           Rust stops data races, not deadlocks. Two threads each hold one lock and wait forever for the other's. The barrier makes it happen every time here; in production it happens once a week, under load.
 
-          :::review Two questions for every lock in a PR
+          :::pitfall Two questions for every lock
           1. **What runs while it is held?** Disk, network or a big loop inside the guard's scope makes every other thread wait.
           2. **Is there a second lock?** If two locks can be held together, they must always be taken in the same order everywhere.
           :::
@@ -176,7 +176,7 @@
           }
           ~~~
 
-          The error ("future cannot be sent between threads safely") points at the «.await» and the guard held across it. This is the compiler catching a lock held across an await for you. Module 08 covers the case it cannot catch.
+          The error ("future cannot be sent between threads safely") points at the «.await» and the guard held across it. This is the compiler catching a lock held across an await for you. The Async module covers the case it cannot catch.
 
           @quiz 0
         `,
@@ -287,12 +287,10 @@ pub fn count_acks(workers: usize, per_worker: u64) -> u64 {
       },
       {
         exercise: {
-          id: 'sh-review-metrics', title: 'PR: per-peer counters and a metrics reporter', kind: 'review', mins: 12, diff: 'medium', topics: ['shared'],
+          id: 'sh-review-metrics', title: 'Find the bugs: per-peer counters and a reporter', kind: 'review', mins: 12, diff: 'medium', topics: ['shared'],
           file: 'src/metrics.rs',
           statement: R`
-            **feat(metrics): per-peer counters and a reporter thread**
-
-            > Counts messages per peer, records the last error, and pushes a snapshot to the monitoring collector every 15 seconds over TCP.
+            **The change:** Counts messages per peer, records the last error, and pushes a snapshot to the monitoring collector every 15 seconds over TCP.
 
             Context: «record» is called by every connection thread for every message. «status» is called by the health endpoint. The collector sits across a VPN and is sometimes slow or unreachable.
           `,

@@ -59,9 +59,9 @@
 
           @stop
 
-          ## Which ones to accept in a review
+          ## Which ones are fine
 
-          | You see | Meaning | In review |
+          | You see | Meaning | Verdict |
           |---|---|---|
           | «match», «if let», «let ... else» | None is handled | fine |
           | «.unwrap_or(x)», «.unwrap_or_default()» | None becomes a default | fine if that default is right; check it cannot hide a real problem |
@@ -141,7 +141,7 @@
           | «.unwrap_or_default()» | the error becomes 0, "", or an empty Vec |
           | «.unwrap()» | not swallowed: it crashes instead (last lesson of this module) |
 
-          Sometimes discarding is right: a best-effort metric, closing a socket that is already dead. The review question is always the same: **when this fails, who finds out?** At the very least, a log line.
+          Sometimes discarding is right: a best-effort metric, closing a socket that is already dead. The question is always the same: **when this fails, who finds out?** At the very least, a log line.
 
           @predict 0
         `,
@@ -185,7 +185,7 @@
           };
           ~~~
 
-          Note the «e.into()»: «?» converts the error into the function's own error type when a conversion exists. That is how one function can use «?» on I/O errors and parse errors alike.
+          Note the «e.into()»: precisely, «?» calls «From::from(e)», so it converts the error into the function's own error type whenever a «From» implementation exists, and fails to compile when none does. That is how one function can use «?» on I/O errors and parse errors alike. On an «Option», «?» returns «None» instead.
 
           ~~~rust !run
           fn parse_endpoint(s: &str) -> Result<(String, u16), String> {
@@ -223,11 +223,11 @@
       {
         lesson: 'err-types', title: 'Error types: thiserror, anyhow, «Box<dyn Error>»', mins: 7, hunts: ['swallow'],
         remember: 'Libraries define an error enum (usually with thiserror); applications carry any error plus context (usually with anyhow). Both work with «?».',
-        cue: 'An error passed straight up with «?» and no context → which file, peer or value was it? Ask for «.context(...)» or a more specific variant',
+        cue: 'An error passed straight up with «?» and no context → which file, peer or value was it? Add «.context(...)», or use a more specific variant',
         body: R`
           ## Three shapes you will see
 
-          | In a PR | What it is | Java version |
+          | You see | What it is | Java version |
           |---|---|---|
           | «enum FrameError { TooLarge(usize), Io(io::Error) }» with «#[derive(Error)]» | a closed set of failures this module can produce | a small exception hierarchy |
           | «anyhow::Result<T>» and «.context("reading config")» | any error, with a chain of context messages | catching «Exception» and wrapping it with a message |
@@ -291,12 +291,106 @@
 
           «{:#}» prints the whole chain on one line: what the program was doing, then why it failed.
 
-          :::review What to look for
+          :::pitfall Common mistakes
           - A library returning «anyhow::Error»: callers cannot tell kinds of failure apart. A thiserror enum usually fits better there.
           - «?» straight up from deep code with no context: the log says "invalid digit found in string" and nobody knows which value.
           - An enum whose «Other(String)» variant is used everywhere: it has stopped carrying information.
           :::
         `,
+      },
+      {
+        lesson: 'err-combinators', title: 'Combinators and the «Error» trait', mins: 6, hunts: ['swallow'],
+        remember: '«Option» and «Result» carry methods that replace most «match»es: «map» and «map_err» change what is inside, «and_then» chains another step that can fail, «ok_or» and «ok» convert between the two, and the «unwrap_or» family supplies a fallback.',
+        cue: 'A «match» whose arms only rewrap («Ok(v) => Ok(f(v)), Err(e) => Err(e)») → «.map(f)»',
+        body: R`
+          ## «Option<T>»
+
+          | Method | Result | Note |
+          |---|---|---|
+          | «map(f)» | «Option<U>» | applies «f» to the value, if any |
+          | «and_then(f)» | «Option<U>» | «f» itself returns an «Option» |
+          | «filter(p)» | «Option<T>» | «None» unless the value passes «p» |
+          | «or(x)», «or_else(f)» | «Option<T>» | a fallback «Option» |
+          | «unwrap_or(v)», «unwrap_or_else(f)», «unwrap_or_default()» | «T» | a fallback value |
+          | «map_or(default, f)» | «U» | map, or the default |
+          | «ok_or(e)», «ok_or_else(f)» | «Result<T, E>» | «None» becomes «Err» |
+          | «as_ref()», «as_deref()» | «Option<&T>», «Option<&str>» | look inside without moving |
+          | «take()», «replace(v)» | «Option<T>» | on «&mut Option»; leaves «None» or «v» behind |
+          | «is_some()», «is_none()», «is_some_and(p)» | «bool» | |
+
+          ## «Result<T, E>»
+
+          | Method | Result | Note |
+          |---|---|---|
+          | «map(f)», «map_err(f)» | «Result<U, E>», «Result<T, F>» | change the value, or the error |
+          | «and_then(f)», «or_else(f)» | «Result<U, E>» | chain another fallible step |
+          | «unwrap_or(v)», «unwrap_or_else(f)», «unwrap_or_default()» | «T» | the error is discarded |
+          | «ok()», «err()» | «Option<T>», «Option<E>» | «ok()» discards the error |
+          | «is_ok()», «is_err()», «is_ok_and(p)» | «bool» | |
+          | «transpose()» | swaps «Option<Result<..>>» and «Result<Option<..>>» | |
+
+          ~~~rust !run
+          fn port(s: &str) -> Result<u16, std::num::ParseIntError> {
+              s.trim().parse::<u16>()
+          }
+
+          fn main() {
+              println!("{:?}", port(" 5100 ").map(|p| p + 1));
+              println!("{:?}", port("x").map_err(|e| e.to_string()));
+              println!("{:?}", port("5100").ok().filter(|&p| p > 1024));
+              println!("{:?}", "lab-a".split_once(':').ok_or("no port"));
+              println!("{}", port("x").unwrap_or_else(|_| 0));
+
+              let name: Option<String> = Some("lab-a".to_string());
+              println!("{:?} {}", name.as_deref(), name.as_ref().map_or(0, |n| n.len()));
+
+              let parsed: Option<Result<u16, _>> = Some("7").map(|s| s.parse::<u16>());
+              println!("{:?}", parsed.transpose());
+          }
+          ~~~
+
+          Every method that turns an error into «None», a default or a fallback throws the error away. That is right when the requirement says "use the default"; it is a swallowed error when the input was supposed to be valid.
+
+          @predict 0
+
+          @stop
+
+          ## The «Error» trait
+
+          ~~~rust
+          pub trait Error: Debug + Display {
+              fn source(&self) -> Option<&(dyn Error + 'static)> { None }
+          }
+          ~~~
+
+          An error type implements «Display» (the message for people), «Debug», and optionally «source» (the underlying cause, which forms a chain). «Box<dyn Error>» holds any of them, and every error type converts into it through «From», so «?» works on all of them at once:
+
+          ~~~rust !run
+          use std::error::Error;
+
+          fn main() -> Result<(), Box<dyn Error>> {
+              let port: u16 = "5100".parse()?;
+              let host = std::str::from_utf8(b"lab-a")?;
+              println!("{host}:{port}");
+              Ok(())
+          }
+          ~~~
+
+          «main» may return «Result<(), E>» for any «E: Debug». When it returns «Err», the program prints the error and exits with a failure code.
+        `,
+        predict: [
+          {
+            q: 'One port has a letter O where a zero should be. What does this print?',
+            code: R`fn main() {
+    let ports = ["5100", "51O1", "5102"];
+    let parsed: Vec<u16> = ports.iter().filter_map(|p| p.parse().ok()).collect();
+    println!("{parsed:?}");
+}`,
+            options: ['[5100, 5102]', '[5100, 0, 5102]', 'It panics', 'Compile error'],
+            answer: 0,
+            why: '«ok()» turns the parse error into «None», and «filter_map» drops every «None». The typo vanishes without a trace. «collect::<Result<Vec<u16>, _>>()» would fail on it instead (the Iterators module).',
+          },
+        ],
       },
       {
         lesson: 'err-panic', title: 'Panics: how Rust code crashes', mins: 7, hunts: ['panic'],
@@ -337,7 +431,7 @@
           }
           ~~~
 
-          A service whose reader task panicked can look perfectly healthy while doing nothing. Module 08 comes back to this.
+          A service whose reader task panicked can look perfectly healthy while doing nothing. The Async module comes back to this.
 
           ## When «unwrap» and «expect» are fine
 
@@ -360,7 +454,7 @@
         ],
         quiz: [
           {
-            q: 'Which «unwrap» deserves a review comment?',
+            q: 'Which «unwrap» is a crash waiting to happen?',
             options: ['«Regex::new("^MSH").unwrap()» at startup', '«u32::from_be_bytes(header[..4].try_into().unwrap())» right after checking «header.len() >= 4»', '«String::from_utf8(frame).unwrap()» on bytes received from a TCP peer', '«assert_eq!(parse("2575").unwrap(), 2575)» in a test'],
             answer: 2,
             why: 'The peer decides which bytes arrive. One sender using Windows-1252 (an accented name in a PID segment) and that task panics. «String::from_utf8_lossy», decoding with the declared charset, or returning an error all keep the connection alive.',
@@ -436,12 +530,10 @@ pub fn parse_endpoint(raw: &str) -> Result<(String, u16), String> {
       },
       {
         exercise: {
-          id: 'err-review-frames', title: 'PR: parse MLLP frames from the socket buffer', kind: 'review', mins: 15, diff: 'medium', topics: ['errors'],
+          id: 'err-review-frames', title: 'Find the bugs: an MLLP frame parser', kind: 'review', mins: 15, diff: 'medium', topics: ['errors'],
           file: 'src/mllp.rs',
           statement: R`
-            **feat(mllp): frame parser for the TCP source**
-
-            > Pulls complete MLLP frames (start byte 0x0B, body, then 0x1C 0x0D) off the front of the connection's read buffer, and writes an audit line per frame. Tested with the test sender: 50 messages, all parsed.
+            **The change:** Pulls complete MLLP frames (start byte 0x0B, body, then 0x1C 0x0D) off the front of the connection's read buffer, and writes an audit line per frame. Tested with the test sender: 50 messages, all parsed.
 
             Context: the TCP source appends whatever bytes arrive to «buf» and calls «next_frame» in a loop. Senders include old systems that use Windows-1252, and TCP delivers bytes in arbitrary chunks. The audit log is required for compliance.
           `,

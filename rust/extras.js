@@ -1,4 +1,4 @@
-/* Rust Lab pages: home, today's 5-minute review, the review map, the recognition drill, cheat sheets,
+/* Rust Lab pages: home, today's 5-minute review, the bug kinds, the recognition drill, cheat sheets,
  * setup. Also owns the review cards (spaced repetition) and wires cloud sync into the page. */
 (function () {
   'use strict';
@@ -24,7 +24,7 @@
     if (kind === 'c' && l && l.cue) { const [x, y] = splitCue(l.cue); return { id, kind: 'flip', label: 'Cue', front: x ? `When you see: ${x}` : `The cue from **${l.title}**`, back: x ? `Reach for: **${y}**` : y, link: '#/l/' + a }; }
     if (kind === 'q' && l && (l.quiz || [])[+b]) return { id, kind: 'quiz', label: 'Quiz', q: l.quiz[+b], link: '#/l/' + a };
     if (kind === 'p' && l && (l.predict || [])[+b]) return { id, kind: 'predict', label: 'Predict', q: l.predict[+b], link: '#/l/' + a };
-    if (kind === 'x' && A.EX[a] && A.EX[a].solution && A.EX[a].solution.talk) { const x = A.EX[a]; return { id, kind: 'flip', label: 'Recall', front: `**${x.title}**: ${x.kind === 'review' ? 'what was wrong with that PR?' : 'what was the fix, in one breath?'}`, back: x.solution.talk, link: '#/x/' + a }; }
+    if (kind === 'x' && A.EX[a] && A.EX[a].solution && A.EX[a].solution.talk) { const x = A.EX[a]; return { id, kind: 'flip', label: 'Recall', front: `**${x.title}**: ${x.kind === 'review' ? 'what were the bugs?' : 'what was the fix, in one breath?'}`, back: x.solution.talk, link: '#/x/' + a }; }
     return null;
   }
   function addCard(id, inDays = 1) {
@@ -55,8 +55,8 @@
   window.RustToday = { seedLesson, seedExercise, dueCount: () => dueCards().length, rate, addCard };
 
   /* ───────────── Drill pool: recognition questions ─────────────
-   * Hand-written items (content/drill.js), plus "which hunt?" for every planted issue in a PR you
-   * already reviewed, plus each hunt's own cue. */
+   * Hand-written items (content/drill.js), plus "which kind of bug?" for every bug in a finished
+   * find-the-bugs exercise, plus each kind's own cue. */
   function drillPool() {
     const pool = RL.drill.map((d) => ({ ...d }));
     const tags = Object.keys(TAGS);
@@ -65,14 +65,14 @@
       for (const is of x.issues) {
         const lines = (x.parsed.marks[is.id] || []).map((n) => x.parsed.lines[n - 1].text.trim());
         const opts = shuffle([is.tag, ...shuffle(tags.filter((t) => t !== is.tag)).slice(0, 3)]);
-        pool.push({ q: `From the PR "${x.title}": which hunt is this line?`, code: lines.join('\n'), options: opts.map((t) => TAGS[t].label), answer: opts.indexOf(is.tag), why: is.title, topic: 'hunt:' + is.tag });
+        pool.push({ q: `From "${x.title}": which kind of bug is this line?`, code: lines.join('\n'), options: opts.map((t) => TAGS[t].label), answer: opts.indexOf(is.tag), why: is.title, topic: 'hunt:' + is.tag });
       }
     }
     for (const t of tags) {
       const [see] = splitCue(TAGS[t].cue);
       if (!see) continue;
       const opts = shuffle([t, ...shuffle(tags.filter((z) => z !== t)).slice(0, 3)]);
-      pool.push({ q: `In a PR you see ${see}. Which hunt does that start?`, options: opts.map((z) => TAGS[z].label), answer: opts.indexOf(t), why: TAGS[t].one, topic: 'hunt:' + t });
+      pool.push({ q: `You see ${see}. Which kind of bug should you check for?`, options: opts.map((z) => TAGS[z].label), answer: opts.indexOf(t), why: TAGS[t].one, topic: 'hunt:' + t });
     }
     return pool;
   }
@@ -109,22 +109,21 @@
     root.innerHTML = `
       <section class="hero rust">
         <div>
-          <div class="eyebrow">Java developer · Rust reviewer</div>
-          <h1>Read and review Rust, one idea at a time.</h1>
-          <p class="lede">Short steps of 3 to 10 minutes. Every lesson starts with the one thing to remember, every snippet shows what the real compiler said, and a 5-minute daily review keeps it from leaking out.</p>
+          <div class="eyebrow">A Rust crash course</div>
+          <h1>Rust, from the ground up.</h1>
+          <p class="lede">The formal syntax and the type system first, then ownership, traits, errors, iterators and async. Short steps of 3 to 10 minutes, every snippet compiled by the real compiler, and a 5-minute daily review so it sticks.</p>
           <div class="cta">${cta}${due ? `<a class="btn warn" href="#/today">Today's review · ${due} card${due === 1 ? '' : 's'} · 5 min</a>` : ''}</div>
           ${nx ? `<p class="small next-why">${nx.resume ? 'Picks up exactly where you stopped.' : 'The next unfinished step in the course.'}</p>` : ''}
         </div>
         <div class="stats">
           <div class="stat"><small>Progress</small><b>${done}<span class="of"> / ${total}</span></b><div class="diffbar"><i style="width:${(100 * done) / Math.max(1, total)}%;background:var(--good)"></i></div><span>steps done</span></div>
           <div class="stat"><small>Today</small><b>${due}</b><span>${due ? 'cards due, about 5 minutes' : Object.keys(S().cards).length ? 'nothing due, nice' : 'cards appear as you finish lessons'}</span></div>
-          <div class="stat wide"><small>PRs reviewed</small><b>${reviews.filter((x) => S().done[x.id]).length}<span class="of"> / ${reviews.length}</span></b><span>AI-written pull requests with planted issues</span></div>
+          <div class="stat wide"><small>Find the bugs</small><b>${reviews.filter((x) => S().done[x.id]).length}<span class="of"> / ${reviews.length}</span></b><span>exercises with hidden bugs to find</span></div>
         </div>
       </section>
       <div class="onething">
         <small>The one thing to remember</small>
-        <p>The compiler already proved there are no dangling pointers and no data races. <b>Your review hunts what it cannot see</b>: crashes and silence, async traps, and plain bugs.</p>
-        ${A.huntsHtml()}
+        <p>Every value has <b>exactly one owner</b>, every reference is <b>checked at compile time</b>, and errors are <b>ordinary values</b>. Everything in this course builds on those three rules.</p>
       </div>
       <h2 class="section-h">Modules</h2>
       <div class="mod-grid">${A.MODS.map((m) => { const s = A.modStats(m); return `<a class="mod-card" href="#/m/${m.id}"><span class="n">${String(m.n).padStart(2, '0')}</span><h3>${esc(m.title)}</h3><p>${inline(m.blurb || '')}</p><div class="bar"><i style="width:${s.n ? (100 * s.d) / s.n : 0}%"></i></div><small>${s.d}/${s.n} steps · about ${m.units.reduce((a, u) => a + (u.mins || (A.LESSON[u.id] === u ? 6 : 10)), 0)} min</small></a>`; }).join('')}
@@ -213,17 +212,17 @@
     return nx ? `<div class="next-card"><div class="nc-left"><small>Your next step</small><a class="nc-title" href="${A.hrefOf(nx.it)}">${inline(nx.it.data.title)}</a><span class="nc-meta">${nx.it.kind === 'lesson' ? 'Lesson' : A.kindLabel(nx.it.data)} · about ${A.itemMins(nx.it)} min</span></div><div class="nc-right"><a class="btn primary" href="${A.hrefOf(nx.it)}">Go →</a></div></div>` : '';
   }
 
-  /* ───────────── Review map: the eight hunts ───────────── */
+  /* ───────────── Bug kinds: the eight the compiler does not catch ───────────── */
   PAGES.hunts = (root) => {
     const where = (t) => {
       const ls = Object.values(A.LESSON).filter((l) => (l.hunts || []).includes(t));
       const xs = A.ALL_EX.filter((x) => x.kind === 'review' && x.issues.some((i) => i.tag === t));
       if (!ls.length && !xs.length) return '<p class="small dim">Taught in a later module.</p>';
-      return `<p class="small">${ls.map((l) => `<a href="#/l/${l.id}">${inline(l.title)}</a>`).concat(xs.map((x) => `<a href="#/x/${x.id}">PR: ${esc(x.title)}</a>`)).join(' · ')}</p>`;
+      return `<p class="small">${ls.map((l) => `<a href="#/l/${l.id}">${inline(l.title)}</a>`).concat(xs.map((x) => `<a href="#/x/${x.id}">${esc(x.title)}</a>`)).join(' · ')}</p>`;
     };
     root.innerHTML = `
-      <div class="eyebrow">Reference</div><h1>The review map</h1>
-      <p class="lede">Eight hunts in three groups. The compiler handles memory and data races; these are what is left for you. Each has a cue: the thing in the code that should make you stop.</p>
+      <div class="eyebrow">Reference</div><h1>Eight kinds of bug</h1>
+      <p class="lede">The compiler rules out use-after-free and data races. These eight kinds of bug, in three groups, are what it cannot rule out. Each has a cue: the thing in the code that should make you look twice.</p>
       <div class="hunt-cols">${Object.entries(GROUPS).map(([g, gr]) => `
         <section class="hunt-col ${g}">
           <h2>${esc(gr.label)}</h2><p class="small">${inline(gr.one)}</p>
@@ -242,7 +241,7 @@
       const { q, answered, pick } = drill;
       root.innerHTML = `
         <div class="eyebrow">Tool</div><h1>Recognition drill</h1>
-        <p class="lede">Quick recognition: what a symbol means, which rule an error breaks, which hunt a line starts. Questions lean toward the topics you miss. Every PR you finish adds its planted lines here.</p>
+        <p class="lede">Quick recognition: what a symbol means, which rule an error breaks, which kind of bug a line hides. Questions lean toward the topics you miss. Every find-the-bugs exercise you finish adds its lines here.</p>
         <div class="drill-bar"><span>Score <b>${st.right}/${st.n}</b></span></div>
         <div class="drill-card">
           <p class="prompt">${inline(q.q)}</p>
@@ -274,7 +273,7 @@
     if (!cur) {
       root.innerHTML = `
         <div class="eyebrow">Reference</div><h1>Cheat sheets</h1>
-        <p class="lede">One page each, for rereading before you open a PR. They print cleanly too (Ctrl/⌘ + P).</p>
+        <p class="lede">One page each, for rereading. They print cleanly too (Ctrl/⌘ + P).</p>
         <div class="mod-grid">${sheets.map((s) => `<a class="mod-card" href="#/cheats/${s.id}"><span class="n">${esc(s.kind || 'Sheet')}</span><h3>${esc(s.title)}</h3><p>${inline(s.blurb || '')}</p></a>`).join('')}</div>`;
       return;
     }

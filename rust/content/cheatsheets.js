@@ -5,7 +5,7 @@
     {
       id: 'phrasebook', title: 'Java to Rust phrasebook', kind: 'Reading',
       blurb: 'The Java you know, and the Rust you will see instead. Types, classes, null and exceptions, collections, concurrency.',
-      lede: 'Skim the left column for what you would write in Java; the middle column is what a PR will contain.',
+      lede: 'Skim the left column for what you would write in Java; the middle column is the Rust equivalent.',
       body: R`
         ## Types
 
@@ -29,7 +29,7 @@
         | getter | «fn kind(&self) -> &str» |
         | setter, or any mutating method | «fn retry(&mut self)» |
         | «static» method | a function in «impl» with no «self»: «Frame::new(...)» |
-        | «interface» | «trait» (module 05) |
+        | «interface» | «trait» (the Traits module) |
         | «@ToString», «@EqualsAndHashCode» | «#[derive(Debug, PartialEq, Eq, Hash)]» |
         | «implements AutoCloseable» | «impl Drop» (runs by itself at scope end) |
         | «public» | «pub» (private is the default) |
@@ -57,7 +57,7 @@
         | «cond ? a : b» | «if cond { a } else { b }» |
         | «map.get(k)» (may be null) | «map.get(&k)» returns «Option<&V>» |
         | «map.computeIfAbsent(...)» | «map.entry(k).or_insert(...)» |
-        | «list.stream().map(...).collect(...)» | «list.iter().map(...).collect()» (module 06) |
+        | «list.stream().map(...).collect(...)» | «list.iter().map(...).collect()» (the Iterators module) |
 
         ## Sharing and threads (preview)
 
@@ -66,7 +66,7 @@
         | a shared object | «Arc<T>» |
         | «synchronized», «ReentrantLock» | «Mutex<T>»: the lock owns the data; «.lock()» returns a guard |
         | «new Thread(r).start()» | «std::thread::spawn(move \|\| ...)» |
-        | «CompletableFuture», «Mono» | «async fn» and «.await» on tokio (module 08) |
+        | «CompletableFuture», «Mono» | «async fn» and «.await» on tokio (the Async module) |
       `,
     },
     {
@@ -102,7 +102,7 @@
     },
     {
       id: 'reactor', title: 'Reactor to Tokio phrasebook', kind: 'Async',
-      blurb: 'The Reactor you already know, and the Tokio you will see in PRs instead. Plus the three rules of async Rust.',
+      blurb: 'The Reactor you already know, and its Tokio equivalent. Plus the three rules of async Rust.',
       lede: 'Same model, different spelling: Tokio code reads top to bottom instead of as a chain of operators.',
       body: R`
         ## The three rules
@@ -126,10 +126,10 @@
         | «Sinks.many().multicast()» | «broadcast::channel(n)» | slow subscribers skip messages |
         | «CompletableFuture», «Sinks.one()» | «oneshot::channel()» | one reply |
         | a volatile field plus listeners | «watch::channel(v)» | latest value only; stop signals |
-        | «onBackpressureBuffer()» | «unbounded_channel()» | a review flag |
+        | «onBackpressureBuffer()» | «unbounded_channel()» | a memory risk |
         | «Schedulers.boundedElastic()» | «tokio::task::spawn_blocking» | for work that must block |
         | event loop threads | Tokio worker threads | one per core by default |
-        | BlockHound | nothing: you review for it | |
+        | BlockHound | nothing: you have to watch for it yourself | |
         | «dispose()» | «handle.abort()», or a «CancellationToken» | |
         | «retryWhen(backoff)» | a loop with capped backoff and jitter | |
         | «doFinally» | «Drop», or the code after the loop | |
@@ -137,14 +137,14 @@
       `,
     },
     {
-      id: 'review', title: 'Rust PR review checklist', kind: 'Review',
-      blurb: 'The eight hunts with their cues, the questions to ask, and when to ask for a second reviewer.',
-      lede: 'Print it or keep it open next to the diff.',
+      id: 'review', title: 'Bug patterns checklist', kind: 'Bugs',
+      blurb: 'The eight kinds of bug the compiler does not catch, with their cues and the questions to ask of your own code.',
+      lede: 'Print it, or keep it open while you write.',
       body: R`
-        ## Before the diff
+        ## What the compiler already proved
 
         - The compiler already proved: no use of freed memory, no data races, every match complete, no null.
-        - So you are **not** checking memory safety. You are checking the eight hunts below, plus whether the change does what the description says.
+        - So memory safety is not your problem. The eight kinds of bug below are.
 
         ## Crashes and silence
 
@@ -203,7 +203,7 @@
         - A function taking «String» or «Vec<u8>» that only reads: it should take «&str» or «&[u8]».
         - «RefCell» or «Rc<RefCell>» added to "fix borrow errors".
 
-        ## Ask for a second reviewer when you see
+        ## Beyond this course
 
         - «unsafe», raw pointers, «transmute».
         - Hand-written «Future» or «Pin» code.

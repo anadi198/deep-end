@@ -1,13 +1,13 @@
 (function (root) {
   const RL = root.RL, R = RL.R;
   RL.module({
-    id: 'crates', title: 'Reading a real crate: Cargo, modules, macros', short: 'Crates',
+    id: 'crates', title: 'Crates: Cargo, modules and macros', short: 'Crates',
     blurb: 'What a Cargo.toml diff really changes, how features switch code in and out, how to find your way around an unfamiliar crate, and the macros that hide a crash or behave differently in production.',
     items: [
       {
         lesson: 'cr-cargo', title: 'Cargo.toml: what a dependency change really does', mins: 7,
         remember: 'A version like «tokio = "1.38"» means any 1.x from 1.38 up, and «Cargo.lock» pins the exact one. Features only ever add code, and if any crate in the build turns a feature on, it is on for everyone.',
-        cue: 'A «Cargo.toml» diff → which new crate, which features, is it a 0.x bump, and is «Cargo.lock» in the PR too?',
+        cue: 'A change to «Cargo.toml» → which new crate, which features, is it a 0.x bump, and did «Cargo.lock» change with it?',
         body: R`
           «Cargo.toml» is the «pom.xml» of a Rust crate. Most of it reads the way you expect:
 
@@ -102,17 +102,17 @@
 
           "Configured out" and the feature's name are the tell: the fix is a line in «Cargo.toml», not in the code. In your own crates this usually comes from «default-features = false», which drops a crate's default features so you can list only the ones you need.
 
-          :::review What to check in a Cargo.toml diff
+          :::pitfall What to check when Cargo.toml changes
           1. **A new dependency**: every crate is code you ship. Is it maintained, widely used, and needed in full?
           2. **Features**: «features = ["full"]» compiles all of tokio; a feature added to a shared crate is on for everyone.
           3. **Versions**: a 0.x bump (0.12 to 0.13) is a breaking upgrade.
-          4. **Cargo.lock**: is it in the PR, and is its diff about as big as the change?
+          4. **Cargo.lock**: is it committed with the change, and is its diff about as big as the change?
           5. **build.rs and [build-dependencies]**: this code runs on the build machine at compile time.
           :::
         `,
         predict: [
           {
-            q: 'The PR calls «record» without a «#[cfg]» of its own. It builds on the author\'s machine, where the metrics feature is on. What happens in a build without the feature?',
+            q: 'The code calls «record» without a «#[cfg]» of its own. It builds on a machine where the metrics feature is on. What happens in a build without the feature?',
             code: R`#[cfg(feature = "metrics")]
 fn record(route: &str) {
     println!("counted a frame for {route}");
@@ -230,7 +230,7 @@ fn main() {
           2. The «pub use» lines are the public API, often gathered in one place.
           3. Follow the type you care about with go-to-definition (rust-analyzer in VS Code or IntelliJ). Reading a crate top to bottom is not the job.
 
-          :::review For every «pub» a PR adds
+          :::pitfall For every new «pub»
           1. Does anything outside this crate need it? If not, «pub(crate)».
           2. A «pub» field lets any code set it, skipping the checks in «new». Is that intended?
           3. In a library, a «pub use» decides where users import from: moving it later breaks them.
@@ -263,7 +263,7 @@ fn main() {
       {
         lesson: 'cr-macros', title: 'Macros: code that writes code', mins: 7, hunts: ['panic', 'logic', 'cost'],
         remember: 'A name ending in «!» is a macro, and «#[...]» above an item is an attribute: both write code you do not see. «debug_assert!» disappears in release builds, «todo!» and «unreachable!» are panics, and «dbg!» is a leftover print.',
-        cue: '«debug_assert!» checking outside input, «unreachable!()» on a value from the wire, or «dbg!» in a PR → the release build behaves differently, it can crash, or it is noise',
+        cue: '«debug_assert!» checking outside input, «unreachable!()» on a value from the wire, or a leftover «dbg!» → the release build behaves differently, it can crash, or it is noise',
         body: R`
           ## Three kinds
 
@@ -297,7 +297,7 @@ fn main() {
 
           ## The macros worth stopping at
 
-          | Macro | In a PR it means |
+          | Macro | What it means |
           |---|---|
           | «todo!()», «unimplemented!()» | a panic if this line runs: unfinished code |
           | «unreachable!()» | a panic if the author was wrong. Fine for a true internal invariant, a crash if the value came from outside |
@@ -327,11 +327,11 @@ fn main() {
 
           ## Logging whole messages
 
-          Module 10 covered «tracing»'s syntax. One addition for PRs: «?frame» logs the whole value with «Debug», and «#[instrument]» records every argument of the function the same way unless «skip(...)» names it. On a message body that is every byte of every message in the logs: slow, huge, and in healthcare it puts patient data where it does not belong. Log the route, the length and the control id, not the body.
+          The Networking module covered «tracing»'s syntax. One addition: «?frame» logs the whole value with «Debug», and «#[instrument]» records every argument of the function the same way unless «skip(...)» names it. On a message body that is every byte of every message in the logs: slow, huge, and in healthcare it puts patient data where it does not belong. Log the route, the length and the control id, not the body.
 
           ## Reading a «macro_rules!» definition
 
-          A PR may define a small macro. To read one: «$name:expr» is an argument, and «$(...),*» repeats for each comma-separated item.
+          Crates often define small macros. To read one: «$name:expr» is an argument, and «$(...),*» repeats for each comma-separated item.
 
           ~~~rust !run
           macro_rules! route_ids {
@@ -346,7 +346,7 @@ fn main() {
           }
           ~~~
 
-          Anything longer than a screen is where "Start here" said to ask for a second reviewer.
+          Writing macros is a topic of its own; recognising these pieces is enough to read the small ones.
         `,
         predict: [
           {
@@ -373,12 +373,10 @@ fn main() {
       },
       {
         exercise: {
-          id: 'cr-review-counters', title: 'PR: per-route frame counters', kind: 'review', mins: 12, diff: 'medium', topics: ['macros'],
+          id: 'cr-review-counters', title: 'Find the bugs: per-route frame counters', kind: 'review', mins: 12, diff: 'medium', topics: ['macros'],
           file: 'src/relay.rs',
           statement: R`
-            **feat(relay): count frames per route, and log each frame**
-
-            > Adds per-route counters to «Relay::handle», logs every frame for debugging, and checks that frames carry a route.
+            **The change:** Adds per-route counters to «Relay::handle», logs every frame for debugging, and checks that frames carry a route.
 
             Context: «handle» runs for every inbound frame, thousands per second at peak. Frames come from other systems and carry patient data. Production runs a release build.
           `,

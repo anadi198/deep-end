@@ -4,7 +4,7 @@ Hands-on labs, one site: **https://anadi198.github.io/deep-end/**
 
 | Lab | Folder | What it teaches |
 |---|---|---|
-| [Rust Lab](https://anadi198.github.io/deep-end/rust/) | `rust/` | Reading and reviewing Rust as a Java developer, on the real compiler |
+| [Rust Lab](https://anadi198.github.io/deep-end/rust/) | `rust/` | A Rust crash course: syntax and types, ownership, traits, errors, async; on the real compiler |
 | [LLD Lab](https://anadi198.github.io/deep-end/lld/) | `lld/` | Low-level design, one pattern at a time, in Java |
 | [DSA Lab](https://anadi198.github.io/deep-end/dsa/) | `dsa/` | Interview patterns and Java problems, graded in the browser |
 | [Postgres Lab](https://anadi198.github.io/deep-end/pg/) | `pg/` | PostgreSQL 18 in the browser: plans, indexes, locking, schema design |

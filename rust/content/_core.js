@@ -16,7 +16,7 @@
  *             wrong     [{ name, rust }]  plausible wrong answers the tests must catch
  *             starterFails  'compile' (the starter must not compile) | 'tests' (it compiles, a test fails)
  *             lint      [{ re, when: 'present'|'absent', note }]  review notes, never failures
- * Review:   { exercise: { id, title, kind: 'review', mins, diff, statement, file, code, issues, decoys,
+ * Find the bugs (kind review): { exercise: { id, title, kind: 'review', mins, diff, statement, file, code, issues, decoys,
  *                         hints, solution: { fixed, talk } } }
  *             code      the file after the PR: a leading "+" marks an added line, ⟦id⟧ at a line end
  *                       ties it to an issue or decoy. It must compile: the compiler passed this PR.
@@ -46,7 +46,7 @@
   RL.module = function (m) { RL.modules.push(m); return m; };
   RL.R = String.raw;
 
-  // The eight things a Rust reviewer hunts for. The compiler already checked memory and data races.
+  // Eight kinds of bug the compiler does not catch. It already checked memory and data races.
   RL.tags = {
     panic: { n: 1, label: 'Can crash', group: 'crash', one: 'unwrap, expect, indexing, slicing or overflow on data you do not control.', cue: '«.unwrap()», «[i]», «&s[a..b]» or arithmetic on outside data → ask what happens on bad input' },
     swallow: { n: 2, label: 'Error swallowed', group: 'crash', one: 'A failure that nobody hears about: «let _ =», «.ok()», an ignored task result.', cue: '«let _ =», «.ok()», «if let Ok» with no else → who finds out when this fails?' },

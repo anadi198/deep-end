@@ -1,13 +1,18 @@
 # Rust Lab
 
-Read and review Rust as a Java developer, one idea at a time.
+A Rust crash course, from the ground up.
 
-The bar is reading and reviewing Rust, not writing it fluently. The compiler already proves there are no dangling pointers and no data races, so the lab teaches what is left for a reviewer: the syntax, ownership and borrowing, errors, and eight "review hunts" (crashes, swallowed errors, async traps, plain bugs).
+| Part | Modules |
+|---|---|
+| Foundations | Syntax; Types; Control flow and patterns; Structs, enums and impl |
+| The core | Ownership; Borrowing; Collections and text; Errors; Traits and generics; Iterators and closures; Crates |
+| Applied | Shared state; Async; Channels; Networking; Wire formats (serde, protobuf, gRPC, tests) |
+| Practice | Find the bugs |
 
-* Lessons lead with the one thing to remember, and end with a cue card.
+* Lessons lead with the one thing to remember, give the formal syntax and the rules, and end with a cue card.
 * Every checked snippet shows the real compiler's output (Rust stable on the Rust Playground), recorded ahead of time so it shows offline.
 * Predict questions: say what a snippet does before you see it.
-* Exercises: **fix** (make it compile or pass), **build** (write it), **review** (an AI-written PR: click the lines you would comment on and pick the hunt).
+* Exercises: **fix** (make it compile or pass), **build** (write it; tests grade it), **find the bugs** (click the lines that are wrong and name the kind of bug).
 * A 5-minute daily review brings remember lines, cues and predicts back at growing intervals.
 
 **Site:** https://anadi198.github.io/deep-end/rust/ (part of [Deep End](../README.md))

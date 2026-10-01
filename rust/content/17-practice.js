@@ -1,58 +1,12 @@
 (function (root) {
   const RL = root.RL, R = RL.R;
   RL.module({
-    id: 'clinic', title: 'The review clinic', short: 'Clinic',
-    blurb: 'A ten-minute method for reviewing a Rust PR, then six longer AI-written PRs that mix everything from modules 00 to 10. One is mostly fine: knowing when not to comment is half the skill.',
+    id: 'clinic', title: 'Practice: find the bugs', short: 'Practice',
+    blurb: 'Six longer programs that mix everything from the earlier modules, each with bugs to find. One is mostly fine: telling a real bug from a harmless pattern is half the skill.',
     items: [
       {
-        lesson: 'cl-method', title: 'Reviewing a Rust PR in ten minutes', mins: 8,
-        remember: 'Read the description for the promise, the signatures for ownership and errors, then hunt the cue words; every comment names the mechanism, when it bites, and the fix.',
-        cue: 'A long Rust PR lands → description first, signatures second, then search the diff for the cue words (unwrap, let _, spawn, select!, lock, std::, as, clone, unbounded)',
-        body: R`
-          ## The method
-
-          1. **The description: what does this PR promise?** "Every message is delivered once." "Retries until the peer is back." Note the invariant, and the context (who sends, what can fail, how big things get). Most planted issues in this lab break a promise the description made.
-          2. **The signatures: who owns what, and what can fail?** Parameters taken by value move ownership (a copy may be hiding at the call site). Return types without «Result» cannot report failure. «&mut self» means state changes.
-          3. **Search for the cue words.** Use the find box on the diff:
-
-          | Search for | Hunt |
-          |---|---|
-          | «unwrap», «expect», «[», «as u» | Can crash, Wrong result |
-          | «let _», «.ok()», «unwrap_or» | Error swallowed, Wrong result |
-          | «std::thread::sleep», «std::fs», «std::net» | Blocks the runtime |
-          | «.await» next to network, «lock()», «connect» | Can wait forever |
-          | «select!», «spawn», «exit», «ack» | Work lost, Error swallowed |
-          | «unbounded», «Vec::new» in a loop, «vec![0u8; len]» | Grows without limit |
-          | «clone», «to_vec», «to_string» | Needless cost |
-
-          4. **Walk the unhappy path.** For each external thing (peer, disk, config), ask: what if it is slow, silent, full, malformed or gone?
-          5. **Ask for the test that would have caught it.** Every demo in this lab is that test. "Add a test with a frame split across two reads" is a better comment than "handle partial frames".
-
-          @stop
-
-          ## Writing the comment
-
-          Three parts, one comment per finding:
-
-          - **What happens**: the mechanism, in the order things happen.
-          - **When it bites**: the concrete situation, and what the user or the peer sees.
-          - **The fix**: the smallest change, or the test to add.
-
-          > **Accept loop stops after one error.** The «Ok((conn, _)) = listener.accept()» pattern switches this «select!» branch off when «accept» returns «Err» (for example «EMFILE»), and the loop then waits only for the stop signal. Senders can still connect at the TCP level but never get an ACK, until the process is restarted. Fix: bind the result and «match» on it; log the error and keep looping, with a short sleep. A test with a fake listener that fails once would catch it.
-
-          ## What not to comment on
-
-          Knowing a pattern is fine saves everyone's time. These kept turning up as decoys:
-
-          - «Arc::clone» before a spawn; «lock().unwrap()»; «Relaxed» on a counter.
-          - «expect("why it cannot fail")» on something that truly cannot fail.
-          - Cloning a short id or name once per request.
-          - Style that clippy already reports: let the tool say it.
-        `,
-      },
-      {
         exercise: {
-          id: 'cl-retry-worker', title: 'Clinic 1: a retry worker for failed deliveries', kind: 'review', mins: 18, diff: 'hard', topics: ['clinic'],
+          id: 'cl-retry-worker', title: 'Practice 1: a retry worker for failed deliveries', kind: 'review', mins: 18, diff: 'hard', topics: ['clinic'],
           file: 'src/retry.rs',
           statement: R`
             **feat(delivery): background retry worker**
@@ -157,7 +111,7 @@ pub trait Sender: Send + Sync + 'static {
       },
       {
         exercise: {
-          id: 'cl-archive-cleanup', title: 'Clinic 2: nightly archive cleanup', kind: 'review', mins: 14, diff: 'medium', topics: ['clinic'],
+          id: 'cl-archive-cleanup', title: 'Practice 2: nightly archive cleanup', kind: 'review', mins: 14, diff: 'medium', topics: ['clinic'],
           file: 'src/cleanup.rs',
           statement: R`
             **feat(archive): nightly cleanup of delivered messages**
@@ -265,7 +219,7 @@ pub fn cleanup(dir: &Path, pending: &dyn Pending, retention_days: u32) -> std::i
       },
       {
         exercise: {
-          id: 'cl-shutdown', title: 'Clinic 3: graceful shutdown', kind: 'review', mins: 14, diff: 'medium', topics: ['clinic'],
+          id: 'cl-shutdown', title: 'Practice 3: graceful shutdown', kind: 'review', mins: 14, diff: 'medium', topics: ['clinic'],
           file: 'src/shutdown.rs',
           statement: R`
             **feat(main): graceful shutdown on SIGTERM**
@@ -356,7 +310,7 @@ impl<W: AsyncWrite + Unpin> Journal<W> {
       },
       {
         exercise: {
-          id: 'cl-http-dest', title: 'Clinic 4: an HTTP destination with retries', kind: 'review', mins: 14, diff: 'medium', topics: ['clinic'],
+          id: 'cl-http-dest', title: 'Practice 4: an HTTP destination with retries', kind: 'review', mins: 14, diff: 'medium', topics: ['clinic'],
           file: 'src/http_dest.rs',
           statement: R`
             **feat(dest): HTTP destination with retries**
@@ -452,7 +406,7 @@ pub struct HttpDest<T: Transport> {
       },
       {
         exercise: {
-          id: 'cl-dialer', title: 'Clinic 5: reconnecting a TCP destination', kind: 'review', mins: 12, diff: 'medium', topics: ['clinic'],
+          id: 'cl-dialer', title: 'Practice 5: reconnecting a TCP destination', kind: 'review', mins: 12, diff: 'medium', topics: ['clinic'],
           file: 'src/dialer.rs',
           statement: R`
             **fix(dest): reconnect the TCP destination after a network blip**
@@ -506,7 +460,7 @@ use tokio::time::sleep;
             {
               id: 'b', tag: 'cost', title: 'Retries every second forever: no backoff',
               why: 'During an hours-long outage this logs and dials 3,600 times an hour, and when the peer comes back every client hits it at once.',
-              fix: 'Capped exponential backoff with jitter (module 10): 1, 2, 4, ... up to about 60 seconds.',
+              fix: 'Capped exponential backoff with jitter (the Networking module): 1, 2, 4, ... up to about 60 seconds.',
             },
             {
               id: 'c', tag: 'lost', title: 'The frame that failed is never re-sent',
@@ -530,14 +484,14 @@ use tokio::time::sleep;
       },
       {
         exercise: {
-          id: 'cl-mostly-fine', title: 'Clinic 6: a refactor that is mostly fine', kind: 'review', mins: 10, diff: 'medium', topics: ['clinic'],
+          id: 'cl-mostly-fine', title: 'Practice 6: a refactor that is mostly fine', kind: 'review', mins: 10, diff: 'medium', topics: ['clinic'],
           file: 'src/hl7.rs',
           statement: R`
             **refactor(hl7): one module for the field helpers**
 
             > The field helpers were copied in three places. Moves them into one module. No behaviour change intended.
 
-            Context: callers ask for field 0 to get a segment's name, for example when routing on segment type. Most PRs are mostly fine; the skill here is flagging only what matters.
+            Context: callers ask for field 0 to get a segment's name, for example when routing on segment type. Most code is mostly fine; the skill here is flagging only what matters.
           `,
           code: R`
 +/// Field n of a segment, numbered the HL7 way: in MSH, field 1 is the separator itself.
@@ -579,7 +533,7 @@ use tokio::time::sleep;
             { id: 'd3', why: 'One small «String» allocation for a patient id per call. Returning «Option<&str>» would avoid it, but that is a style preference, not a problem.' },
           ],
           hints: [
-            'There is exactly one planted issue. Everything else is fine.',
+            'There is exactly one bug. Everything else is fine.',
             'The context mentions field 0 for a reason. Try «field(msh, 0)» by hand.',
           ],
           solution: {

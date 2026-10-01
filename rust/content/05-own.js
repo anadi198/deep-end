@@ -56,7 +56,7 @@
           A parameter of type «String» takes ownership. After the call the caller has nothing. This is the biggest habit to unlearn from Java, where you pass an object and keep using it.
 
           :::java Reading signatures, the Java way
-          «fn store(msg: String)» is like handing over the object and promising never to touch it again. «fn store(msg: &str)» is the Java you know: the function looks at it, you keep it. Module 03 is about that «&».
+          «fn store(msg: String)» is like handing over the object and promising never to touch it again. «fn store(msg: &str)» is the Java you know: the function looks at it, you keep it. The Borrowing module is about that «&».
           :::
 
           ## Returning hands it back
@@ -91,7 +91,7 @@
         ],
         quiz: [
           {
-            q: 'A PR adds «fn send(frame: Vec<u8>)». What does the caller give up?',
+            q: 'A function is declared «fn send(frame: Vec<u8>)». What does the caller give up?',
             options: ['Nothing: a Vec is passed by reference, like in Java', 'The Vec itself: after the call the caller cannot use it', 'A copy is made automatically', 'Only the first element'],
             answer: 1,
             why: 'A parameter without «&» takes ownership. If the caller still needs the buffer, the signature should borrow it («frame: &[u8]»), or the caller has to clone.',
@@ -101,7 +101,7 @@
       {
         lesson: 'own-copy-clone', title: 'Copy, Clone, and what «.clone()» costs', mins: 6, hunts: ['cost'],
         remember: 'Small plain values (numbers, bool, char) are copied on assignment; everything else moves unless you call «.clone()», and a clone costs as much as the data.',
-        cue: '«.clone()» in a PR → what is being cloned? A number or an «Arc»: free. A «String», «Vec» or a struct of them: a full copy of the data',
+        cue: '«.clone()» → what is being cloned? A number or an «Arc»: free. A «String», «Vec» or a struct of them: a full copy of the data',
         body: R`
           ## Some types copy instead of moving
 
@@ -140,14 +140,14 @@
 
           @stop
 
-          ## Why AI-written code clones so much
+          ## Why code ends up cloning so much
 
           When code does not compile because something moved, the fastest fix is «.clone()». It always compiles. Whether it is fine depends entirely on what is being cloned:
 
-          | Clone of | Cost | In review |
+          | Clone of | Cost | Verdict |
           |---|---|---|
           | a number, «bool», «char» | nothing | fine |
-          | an «Arc<T>» | one atomic counter increment | fine: this is how you share (module 07) |
+          | an «Arc<T>» | one atomic counter increment | fine: this is how you share (the Shared state module) |
           | a short «String» (an id, a name), once per request | a small allocation | usually fine |
           | a message body or a «Vec<u8>» buffer, per message | allocate and copy every byte, every time | comment on it |
           | a whole map or config, on every call | the same, bigger | comment on it |
@@ -226,7 +226,7 @@
           }
           ~~~
 
-          Tokio's async «Mutex» (the one connector code uses) gets no such check. It compiles, and the lock is already free on the next line:
+          Tokio's async «Mutex» (the one async code uses) gets no such check. It compiles, and the lock is already free on the next line:
 
           ~~~rust !run
           use tokio::sync::Mutex;
@@ -239,10 +239,10 @@
           }
           ~~~
 
-          So «let _ = something.lock()» in a PR is a bug the compiler only sometimes catches for you.
+          So «let _ = something.lock()» is a bug the compiler only sometimes catches for you.
 
-          :::review The lock-scope question
-          When you see «.lock()» in a PR, find where the guard's scope ends. Everything in between runs under the lock. Slow work in that window (disk, network, a big loop) makes every other thread wait. In async code it is worse, which module 08 covers.
+          :::pitfall The lock-scope question
+          When you see «.lock()», find where the guard's scope ends. Everything in between runs under the lock. Slow work in that window (disk, network, a big loop) makes every other thread wait. In async code it is worse, which the Async module covers.
           :::
         `,
         predict: [
@@ -251,7 +251,7 @@
             code: 'struct Conn(&\'static str);\n\nimpl Drop for Conn {\n    fn drop(&mut self) {\n        println!("closing {}", self.0);\n    }\n}\n\nfn main() {\n    let _ = Conn("epic");\n    println!("working");\n}',
             options: ['working\nclosing epic', 'closing epic\nworking', 'Compile error'],
             answer: 1,
-            why: '«let _ =» does not bind the value to anything, so it is dropped on the spot, before "working" prints. «let _conn =» (with a name after the underscore) keeps it alive to the end of the scope. In a PR, «let _ = something.lock()» almost never does what the author meant.',
+            why: '«let _ =» does not bind the value to anything, so it is dropped on the spot, before "working" prints. «let _conn =» (with a name after the underscore) keeps it alive to the end of the scope. «let _ = something.lock()» almost never does what the author meant.',
           },
         ],
       },
@@ -316,7 +316,7 @@
           | «&[u8]» | «&str» | «std::str::from_utf8(b)» | checks the bytes, returns a «Result» |
           | «Vec<u8>» | «String» | «String::from_utf8(v)» | checks the bytes, returns a «Result» |
 
-          The last two return a «Result» because bytes are not always valid UTF-8. A legacy sender using Windows-1252 is exactly that case. It is an error you can handle, unless someone calls «.unwrap()» on it (module 04).
+          The last two return a «Result» because bytes are not always valid UTF-8. A legacy sender using Windows-1252 is exactly that case. It is an error you can handle, unless someone calls «.unwrap()» on it (the Errors module).
         `,
         predict: [
           {
@@ -325,6 +325,125 @@
             options: ['José', 'Jos', 'It panics', 'Compile error'],
             answer: 2,
             why: '«é» takes two bytes in UTF-8, so byte 4 lands in the middle of it. Slicing at a byte that is not a character boundary panics. Names, addresses and free text from other systems are where this bites. «name.get(..4)» returns «None» instead of panicking.',
+          },
+        ],
+      },
+      {
+        lesson: 'own-rules', title: 'The ownership rules, precisely', mins: 7,
+        remember: 'Every value has exactly one owner. Assignment, argument passing and returning move the value unless its type is «Copy», and a value is dropped when its owner goes out of scope: locals in reverse order of declaration, struct fields in declaration order.',
+        cue: 'A value has to come out of a field you only have «&mut» access to → «std::mem::take», «std::mem::replace», or «Option::take»',
+        body: R`
+          ## The rules
+
+          1. Every value has exactly **one owner** at a time: a variable, a field, an element of a collection, or a temporary.
+          2. Assigning a value, passing it to a function or returning it **moves** it: the old owner can no longer be used. Types that implement «Copy» are copied instead.
+          3. When the owner goes out of scope, the value is **dropped**: its «Drop» implementation runs and its memory is released.
+
+          ## Which types are «Copy»
+
+          All integer and float types, «bool», «char», shared references «&T», and tuples and arrays whose elements are all «Copy». A struct or enum can derive «Copy» only if all its fields are «Copy» and it has no «Drop» implementation. «Copy» is always a plain bit-for-bit copy; «Clone» may do any amount of work, and is always explicit.
+
+          ## Partial moves
+
+          Moving one field out of a struct is allowed. The struct can no longer be used as a whole, but its other fields can:
+
+          @predict 0
+
+          You cannot move out of something you only borrowed; that would leave the owner holding a hole:
+
+          ~~~rust !fail
+          struct Batch {
+              frames: Vec<String>,
+          }
+
+          impl Batch {
+              fn flush(&mut self) -> Vec<String> {
+                  self.frames
+              }
+          }
+
+          fn main() {
+              let mut b = Batch { frames: vec![] };
+              println!("{}", b.flush().len());
+          }
+          ~~~
+
+          The standard fix is to put something in its place:
+
+          ~~~rust !run
+          use std::mem;
+
+          struct Batch {
+              frames: Vec<String>,
+              label: String,
+          }
+
+          impl Batch {
+              fn flush(&mut self) -> Vec<String> {
+                  mem::take(&mut self.frames) // leaves an empty Vec behind
+              }
+
+              fn rename(&mut self, new: &str) -> String {
+                  mem::replace(&mut self.label, new.to_string()) // returns the old value
+              }
+          }
+
+          fn main() {
+              let mut b = Batch { frames: vec!["a".into(), "b".into()], label: "old".into() };
+              let sent = b.flush();
+              let old = b.rename("new");
+              println!("{sent:?} {:?} {old} {}", b.frames, b.label);
+
+              let mut slot = Some(5);
+              let taken = slot.take(); // leaves None behind
+              println!("{taken:?} {slot:?}");
+          }
+          ~~~
+
+          @stop
+
+          ## Drop order
+
+          ~~~rust !run
+          struct Noisy(&'static str);
+
+          impl Drop for Noisy {
+              fn drop(&mut self) {
+                  println!("drop {}", self.0);
+              }
+          }
+
+          struct Pair {
+              first: Noisy,
+              second: Noisy,
+          }
+
+          fn main() {
+              let _a = Noisy("a");
+              let _b = Noisy("b");
+              let _pair = Pair { first: Noisy("pair.first"), second: Noisy("pair.second") };
+              println!("end of main");
+          }
+          ~~~
+
+          Locals drop in reverse order of declaration, so later values (which may borrow from earlier ones) go first. A struct's fields drop in the order they are declared. A temporary created inside a statement drops at the end of that statement.
+        `,
+        predict: [
+          {
+            q: 'One field is moved out of the struct. What happens?',
+            code: R`struct Frame {
+    route: String,
+    body: Vec<u8>,
+}
+
+fn main() {
+    let f = Frame { route: "lab-a".to_string(), body: vec![1, 2] };
+    let route = f.route;
+    println!("{} {}", route, f.body.len());
+}`,
+            options: ['lab-a 2', 'Compile error: f was moved', 'It panics'],
+            answer: 0,
+            why: 'A partial move: «f.route» now belongs to «route», so «f» cannot be used as a whole any more, but «f.body» was never moved and is still usable.',
           },
         ],
       },
@@ -417,16 +536,14 @@ pub fn summary(msg: String) -> String {
       },
       {
         exercise: {
-          id: 'own-review-archive', title: 'PR: store message batches in the archive', kind: 'review', mins: 10, diff: 'easy', topics: ['ownership'],
+          id: 'own-review-archive', title: 'Find the bugs: storing message batches', kind: 'review', mins: 10, diff: 'easy', topics: ['ownership'],
           file: 'src/archive.rs',
           statement: R`
-            **feat(archive): store batches and report body sizes**
+            **The change:** Adds «store_all», which archives a batch of messages and skips any body over the configured limit, and «size_of» for the metrics endpoint. Unit tested with a three-message batch.
 
-            > Adds «store_all», which archives a batch of messages and skips any body over the configured limit, and «size_of» for the metrics endpoint. Unit tested with a three-message batch.
+            Context: bodies can be up to 4 MB, batches hold up to 500 messages, and the metrics endpoint is scraped every 15 seconds.
 
-            Context you would know at work: bodies can be up to 4 MB, batches hold up to 500 messages, and the metrics endpoint is scraped every 15 seconds.
-
-            Lines starting with **+** are what the PR adds. Review those.
+            The lines marked **+** are new, and the bugs are in them.
           `,
           code: R`
 use std::collections::HashMap;
@@ -495,7 +612,7 @@ impl Archive {
             { id: 'd2', why: '«lock().unwrap()» is the accepted idiom. It only panics if another thread already panicked while holding this lock (the lock is "poisoned"), and then there is little better to do.' },
           ],
           hints: [
-            'Two of the issues are the same hunt: something is copied that does not need to be.',
+            'Two of the bugs are the same kind: something is copied that does not need to be.',
             'Look at what «.clone()» is called on, and how big that thing can get given the context in the description.',
             'The third is a plain logic bug: what does «size_of» return for an id that was never stored?',
           ],
