@@ -35,6 +35,18 @@ test('rust: byte strings and raw strings', () => {
   assert.match(h, /<span class="tok-s">r#&quot;a&quot;b&quot;#<\/span>/);
 });
 
+test('cpp: keywords, preprocessor lines, strings, numbers and comments', () => {
+  const h = HL.cpp('#include <vector>\nint main() { auto v = std::vector<int>{1, 2}; // two\n  const char* s = "a<b"; return 0u; }');
+  assert.match(h, /^<span class="tok-a">#include &lt;vector&gt;<\/span>/);
+  assert.match(h, /<span class="tok-k">int<\/span> main/);
+  assert.match(h, /<span class="tok-k">auto<\/span>/);
+  assert.match(h, /<span class="tok-c">\/\/ two<\/span>/);
+  assert.match(h, /<span class="tok-s">&quot;a&lt;b&quot;<\/span>/);
+  assert.match(h, /<span class="tok-n">0u<\/span>/);
+  assert.match(h, /<span class="tok-k">const<\/span> <span class="tok-k">char<\/span>\*/);
+  assert.doesNotMatch(HL.cpp('a #b'), /tok-a/, 'a # in the middle of a line is not a directive');
+});
+
 test('rustc output: headers, arrows and help lines get classes', () => {
   const h = HL.rustc('error[E0382]: borrow of moved value: `s`\n --> src/main.rs:5:16\n  |\nhelp: consider cloning\nwarning: unused variable');
   assert.match(h, /<span class="rc-err">error\[E0382\]<\/span>: borrow of moved value: `s`/);

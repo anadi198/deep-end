@@ -269,3 +269,97 @@ test('test crate: multi-threaded and paused-time async tests', () => {
 test('fences: !hang is a flag', () => {
   assert.deepEqual(H.fenceInfo('rust !hang waits forever'), { lang: 'rust', flag: 'hang', label: 'waits forever' });
 });
+
+test('cpp fences: run, asan, check and fail fences are found; rust and unflagged ones are not', () => {
+  const body = `
+        ~~~cpp !asan the same in C++
+        int main() {}
+        ~~~
+
+        ~~~cpp
+        display only
+        ~~~
+
+        ~~~rust !run
+        println!("hi");
+        ~~~
+
+        ~~~cpp !check
+        struct Frame { int id; };
+        ~~~
+  `;
+  const fs = H.cppFences(body);
+  assert.deepEqual(fs.map((f) => [f.flag, f.label]), [['asan', 'the same in C++'], ['check', '']]);
+  assert.equal(fs[1].src, 'struct Frame { int id; };');
+  assert.equal(H.fences(body).length, 1, 'the rust fence list is unchanged');
+});
+
+test('cpp request: headers by -include, execution only for run and asan, sanitizers only for asan', () => {
+  const run = H.cppRequest('run', 'int main() {}');
+  assert.match(run.url, /^https:\/\/godbolt\.org\/api\/compiler\/g\d+\/compile$/);
+  assert.equal(run.body.source, 'int main() {}');
+  assert.match(run.body.options.userArguments, /-std=c\+\+23/);
+  assert.match(run.body.options.userArguments, /-include vector/);
+  assert.equal(run.body.options.filters.execute, true);
+  assert.doesNotMatch(run.body.options.userArguments, /sanitize/);
+  assert.match(H.cppRequest('asan', 'int main() {}').body.options.userArguments, /-fsanitize=address,undefined/);
+  assert.equal(H.cppRequest('check', 'struct A {};').body.options.filters.execute, false);
+  assert.equal(H.cppRequest('fail', 'struct A {};').body.options.filters.execute, false);
+});
+
+const G = {
+  compileError: { code: 1, stderr: [{ text: '<source>: In function \'int main()\':' }, { text: '<source>:3:5: \u001b[01;31merror: \u001b[m\'x\' was not declared in this scope' }], stdout: [] },
+  compiledOnly: { code: 0, stderr: [], stdout: [] },
+  ran: { code: 0, stderr: [], execResult: { code: 0, buildResult: { code: 0 }, stdout: [{ text: '[] [lab-a]' }, { text: '-2147483648' }], stderr: [] } },
+  asan: { code: 0, stderr: [], execResult: { code: 1, buildResult: { code: 0 }, stdout: [], stderr: [
+    { text: '=================================================================' },
+    { text: '\u001b[1m\u001b[31m==2==ERROR: AddressSanitizer: heap-use-after-free on address 0x72e2185e0010 at pc 0x000000401494 bp 0x7fffbbc36540 sp 0x7fffbbc36538' },
+    { text: 'READ of size 4 at 0x72e2185e0010 thread T0' },
+    { text: '    #0 0x000000401493 in main /app/example.cpp:7' },
+    { text: 'SUMMARY: AddressSanitizer: heap-use-after-free /app/example.cpp:7 in main' },
+  ] } },
+  ubsan: { code: 0, stderr: [], execResult: { code: 0, buildResult: { code: 0 }, stdout: [{ text: '-2147483648' }], stderr: [
+    { text: '/app/example.cpp:3:7: runtime error: signed integer overflow: 2147483647 + 1 cannot be represented in type \'int\'' },
+  ] } },
+};
+
+test('cpp outcome: compile error, compile only, a clean run, and sanitizer reports', () => {
+  const ce = H.cppOutcome(G.compileError);
+  assert.equal(ce.kind, 'compile-error');
+  assert.equal(ce.text, "In function 'int main()':\n3:5: error: 'x' was not declared in this scope");
+  assert.equal(H.cppOutcome(G.compiledOnly).kind, 'ok');
+  const ok = H.cppOutcome(G.ran);
+  assert.deepEqual([ok.kind, ok.stdout], ['ok', '[] [lab-a]\n-2147483648\n']);
+  const a = H.cppOutcome(G.asan);
+  assert.equal(a.kind, 'sanitizer');
+  assert.equal(a.text, 'AddressSanitizer: heap-use-after-free, in main at line 7');
+  const u = H.cppOutcome(G.ubsan);
+  assert.equal(u.kind, 'sanitizer', 'UBSan reports even when the program exits 0');
+  assert.equal(u.text, "line 3: runtime error: signed integer overflow: 2147483647 + 1 cannot be represented in type 'int'");
+  assert.equal(u.stdout, '-2147483648\n');
+});
+
+test('cpp outcome: the sanitizer location is the first frame in the snippet, named without its parameters', () => {
+  const stack = (lines) => ({ code: 0, stderr: [], execResult: { code: 1, buildResult: { code: 0 }, stdout: [], stderr: lines.map((text) => ({ text })) } });
+  const overflow = stack([
+    '==1==ERROR: AddressSanitizer: stack-buffer-overflow on address 0x7ffd at pc 0x4011 bp 0x7ffd sp 0x7ffd',
+    '    #0 0x401136 in byte_at(int const*, unsigned long) /app/example.cpp:2',
+    '    #1 0x4011c5 in main /app/example.cpp:7',
+    'Address 0x7ffd is located in stack of thread T0 at offset 48 in frame',
+    '    #0 0x401150 in main /app/example.cpp:5',
+  ]);
+  assert.equal(H.cppOutcome(overflow).text, 'AddressSanitizer: stack-buffer-overflow, in byte_at at line 2');
+  const viaLibrary = stack([
+    '==1==ERROR: AddressSanitizer: heap-use-after-free on address 0x5020 at pc 0x7f12 bp 0x7ffd sp 0x7ffd',
+    '    #0 0x7f12 in memcpy (/usr/lib/libasan.so.8+0x1234)',
+    '    #1 0x7f13 in std::basic_ostream<char, std::char_traits<char> >& std::__ostream_insert<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*, long) (/usr/lib/libstdc++.so.6+0x1)',
+    '    #2 0x401200 in main /app/example.cpp:9',
+  ]);
+  assert.equal(H.cppOutcome(viaLibrary).text, 'AddressSanitizer: heap-use-after-free, in main at line 9');
+});
+
+test('cpp record: what the page stores', () => {
+  assert.deepEqual(H.cppRecord(H.cppOutcome(G.ran)), { k: 'ok', o: '[] [lab-a]\n-2147483648\n', t: '', e: '' });
+  assert.deepEqual(H.cppRecord(H.cppOutcome(G.compileError)), { k: 'compile-error', o: '', t: "In function 'int main()':\n3:5: error: 'x' was not declared in this scope", e: '' });
+  assert.equal(H.cppRecord(H.cppOutcome(G.asan)).e, 'AddressSanitizer: heap-use-after-free, in main at line 7');
+});

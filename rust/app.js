@@ -97,7 +97,7 @@
         }
         i++;
         out += kind === 'vs'
-          ? `<div class="callout vs">${title ? `<b>${inline(title)}</b>` : ''}<div class="vs-grid">${md(buf.join('\n'), ctx)}</div></div>`
+          ? vsBlock(title, buf, ctx)
           : `<div class="callout ${kind}">${title ? `<b>${inline(title)}</b>` : ''}${md(buf.join('\n'), ctx)}</div>`;
         continue;
       }
@@ -152,7 +152,36 @@
     return out;
   }
 
-  /* Code blocks. A flagged rust fence shows the compiler's recorded output under it and can be edited and run. */
+  /* A side-by-side: Rust on the right; Java and C++ on the left, as tabs when both are present.
+   * The chosen tab is a page-wide preference (html[data-compare]), so every comparison follows it. */
+  const COMPARE_NAMES = { java: 'Java', cpp: 'C++' };
+  function vsBlock(title, lines, ctx) {
+    const parts = { java: [], cpp: [], rust: [], other: [] };
+    for (let i = 0; i < lines.length; i++) {
+      const m = /^(?:```|~~~)(.*)$/.exec(lines[i]);
+      if (!m) { parts.other.push(lines[i]); continue; }
+      const lang = H.fenceInfo(m[1]).lang || 'rust';
+      const into = parts[lang] || parts.other;
+      into.push(lines[i]);
+      for (i++; i < lines.length && !/^(?:```|~~~)\s*$/.test(lines[i]); i++) into.push(lines[i]);
+      into.push(lines[i] || '~~~');
+    }
+    const others = ['java', 'cpp'].filter((l) => parts[l].length);
+    const tabs = others.length > 1 ? `<div class="vs-tabs" role="tablist">${others.map((l) => `<button data-cmp="${l}" role="tab">${COMPARE_NAMES[l]}</button>`).join('')}</div>` : '';
+    const left = `<div class="vs-side${others.length > 1 ? ' tabbed' : ''}">${tabs}${others.map((l) => `<div class="vs-pane" data-lang="${l}">${md(parts[l].join('\n'), ctx)}</div>`).join('')}</div>`;
+    const right = `<div class="vs-side">${md(parts.rust.join('\n'), ctx)}</div>`;
+    const rest = parts.other.some((l) => l.trim()) ? md(parts.other.join('\n'), ctx) : '';
+    return `<div class="callout vs">${title ? `<b>${inline(title)}</b>` : ''}<div class="vs-grid">${left}${right}</div>${rest}</div>`;
+  }
+  const setCompare = (lang) => {
+    document.documentElement.dataset.compare = lang;
+    try { localStorage.setItem('rustlab.compare', lang); } catch { /* storage blocked */ }
+  };
+  try { document.documentElement.dataset.compare = localStorage.getItem('rustlab.compare') || 'java'; } catch { document.documentElement.dataset.compare = 'java'; }
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-cmp]'); if (b) setCompare(b.dataset.cmp); });
+
+  /* Code blocks. A flagged rust fence shows the compiler's recorded output under it and can be edited and run;
+   * a flagged cpp fence shows what GCC (on Compiler Explorer) did with it when the course was built. */
   const CODE_SRC = {};
   let cbSeq = 0;
   function codeBlock(src, { lang = 'rust', label = '', flag = null, ctx = {} } = {}) {
@@ -163,12 +192,29 @@
       body = HL.rust(s.shown);
       if (flag) rec = OUT[s.key] || null;
     } else if (lang === 'java') body = HL.java(src);
-    else body = esc(src);
+    else if (lang === 'cpp') {
+      body = HL.cpp(src);
+      if (flag) rec = OUT[H.key('cpp-' + flag, src)] || null;
+    } else body = esc(src);
     CODE_SRC[id] = { src, flag, lang };
     const canLoad = lang === 'rust' && ctx.exercise && ctx.loadable;
-    const buttons = `${flag ? '<button class="btn quiet" data-cb="edit" title="Change this code and run it on the Rust Playground">Edit &amp; run</button>' : ''}<button class="btn quiet" data-cb="copy">Copy</button>${canLoad ? '<button class="btn quiet" data-cb="load" title="Replace the editor contents with this code">Load into editor</button>' : ''}`;
-    const out = flag ? `<div class="cb-out">${rec ? outputHtml(rec, flag) : '<div class="out none"><small>Not recorded yet</small><p>Press <b>Edit &amp; run</b> to see what it does.</p></div>'}</div>` : '';
-    return `<div class="codeblock lang-${esc(lang)}${flag ? ' checked' : ''}" data-id="${id}"><pre>${body}</pre><div class="cb-bar"><span class="lbl">${esc(label || (lang === 'java' ? 'Java' : ''))}</span>${buttons}</div>${out}</div>`;
+    const runnable = flag && lang === 'rust';
+    const buttons = `${runnable ? '<button class="btn quiet" data-cb="edit" title="Change this code and run it on the Rust Playground">Edit &amp; run</button>' : ''}<button class="btn quiet" data-cb="copy">Copy</button>${canLoad ? '<button class="btn quiet" data-cb="load" title="Replace the editor contents with this code">Load into editor</button>' : ''}`;
+    const out = !flag ? '' : lang === 'cpp'
+      ? `<div class="cb-out">${cppOutputHtml(rec, flag)}</div>`
+      : `<div class="cb-out">${rec ? outputHtml(rec, flag) : '<div class="out none"><small>Not recorded yet</small><p>Press <b>Edit &amp; run</b> to see what it does.</p></div>'}</div>`;
+    return `<div class="codeblock lang-${esc(lang)}${flag ? ' checked' : ''}" data-id="${id}"><pre>${body}</pre><div class="cb-bar"><span class="lbl">${esc(label || COMPARE_NAMES[lang] || '')}</span>${buttons}</div>${out}</div>`;
+  }
+  // rec (H.cppRecord): { k: 'ok'|'compile-error'|'sanitizer'|'exit', o: stdout, t: compiler errors, e: sanitizer report or stderr }
+  function cppOutputHtml(rec, flag) {
+    if (!rec) return '<div class="out none"><small>Not recorded yet</small></div>';
+    if (rec.k === 'compile-error') return `<div class="out err"><small>g++ says</small><pre class="rustc">${esc(rec.t)}</pre></div>`;
+    if (flag === 'check') return '<div class="out ok"><small>Compiles</small><p class="dim">GCC 16, C++23</p></div>';
+    let html = rec.o ? `<div class="out ok"><small>Output</small><pre>${esc(rec.o.replace(/\n$/, ''))}</pre></div>` : '';
+    if (rec.k === 'sanitizer') html += `<div class="out panic"><small>Sanitizer report (-fsanitize=address,undefined)</small><pre class="rustc">${esc(rec.e)}</pre></div>`;
+    else if (rec.k === 'exit') html += `<div class="out panic"><small>Exited with an error</small>${rec.e ? `<pre class="rustc">${esc(rec.e)}</pre>` : ''}</div>`;
+    else if (!rec.o) html += '<div class="out ok"><small>Output</small><p class="dim">(prints nothing)</p></div>';
+    return html;
   }
   // rec (H.record): { k: outcome kind, o: stdout, t: compiler errors or warnings, e: the program's own stderr }
   function outputHtml(rec, flag, live = false) {

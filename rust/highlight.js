@@ -55,6 +55,26 @@
     return out;
   }
 
+  /* ── C++ (for side-by-side comparisons) ── */
+  const CPP_KW = new Set(('alignas alignof auto bool break case catch char char8_t char16_t char32_t class concept const consteval constexpr constinit '
+    + 'const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast else enum explicit export extern false final float '
+    + 'for friend goto if inline int long mutable namespace new noexcept nullptr operator override private protected public register reinterpret_cast '
+    + 'requires return short signed sizeof static static_assert static_cast struct switch template this thread_local throw true try typedef typeid '
+    + 'typename union unsigned using virtual void volatile wchar_t while size_t int8_t uint8_t int16_t uint16_t int32_t uint32_t int64_t uint64_t').split(' '));
+  function cpp(src) {
+    let out = '', m;
+    const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|((?:^|(?<=\n))[ \t]*#[^\n]*)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|(\b0x[0-9a-fA-F']+[uUlL]*\b|\b\d[\d']*(?:\.\d+)?(?:[eE][+-]?\d+)?[uUlLfF]*\b)|([A-Za-z_][\w]*)|([\s\S])/g;
+    while ((m = re.exec(src))) {
+      if (m[1]) out += span('tok-c', m[1]);
+      else if (m[2]) out += span('tok-a', m[2]);
+      else if (m[3]) out += span('tok-s', m[3]);
+      else if (m[4]) out += span('tok-n', m[4]);
+      else if (m[5]) out += CPP_KW.has(m[5]) ? span('tok-k', m[5]) : /^[A-Z]/.test(m[5]) ? span('tok-t', m[5]) : esc(m[5]);
+      else out += esc(m[6]);
+    }
+    return out;
+  }
+
   /* ── rustc output ── */
   function rustc(text) {
     return String(text || '').split('\n').map((l) => {
@@ -68,7 +88,7 @@
     }).join('\n');
   }
 
-  const api = { rust, java, rustc, esc };
+  const api = { rust, java, cpp, rustc, esc };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RustHighlight = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

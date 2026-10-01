@@ -203,8 +203,54 @@
     return kind + ':' + h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
   }
 
+  // C++ comparisons run on Compiler Explorer (godbolt.org). Standard headers come in through
+  // -include, so a snippet needs no #include lines and its line numbers stay its own.
+  const CPP_COMPILER = 'g162';
+  const CPP_HEADERS = ['algorithm', 'array', 'atomic', 'cctype', 'cstddef', 'cstdint', 'expected', 'filesystem', 'format', 'functional', 'iostream', 'map', 'memory', 'mutex',
+    'optional', 'ranges', 'span', 'stdexcept', 'string', 'string_view', 'thread', 'unordered_map', 'utility', 'variant', 'vector'];
+  const CPP_FLAGS = new Set(['run', 'asan', 'check', 'fail']);
+  function cppRequest(flag, code) {
+    const execute = flag === 'run' || flag === 'asan';
+    const args = ['-std=c++23', '-O0', '-Wall', ...CPP_HEADERS.map((h) => '-include ' + h), ...(flag === 'asan' ? ['-g', '-fsanitize=address,undefined'] : [])].join(' ');
+    return {
+      url: `https://godbolt.org/api/compiler/${CPP_COMPILER}/compile`,
+      body: { source: code, lang: 'c++', options: { userArguments: args, filters: { execute }, executeParameters: { args: [], stdin: '' } } },
+    };
+  }
+  const ANSI = /\u001b\[[0-9;]*m/g;
+  const textLines = (arr) => (arr || []).map((l) => String(l.text).replace(ANSI, ''));
+  const cppDiag = (ls) => ls.map((l) => l.replace(/^<source>:\s?/, '')).slice(0, 20).join('\n').trim();
+  function sanitizerSummary(err) {
+    const asan = err.map((l) => /ERROR: (\w+Sanitizer): ([\w-]+)/.exec(l)).find(Boolean);
+    if (asan) {
+      // the faulting access's stack ends where the report starts describing the memory
+      const end = err.findIndex((l) => /^(?:Address |freed by|previously allocated|SUMMARY:)/.test(l.trim()));
+      const access = end < 0 ? err : err.slice(0, end);
+      const at = access.map((l) => /#\d+ 0x[0-9a-f]+ in (.+?) \S*example\.cpp:(\d+)/.exec(l)).find(Boolean);
+      return `${asan[1]}: ${asan[2]}${at ? `, in ${at[1].replace(/\(.*$/, '')} at line ${at[2]}` : ''}`;
+    }
+    const ub = err.map((l) => /example\.cpp:(\d+):\d+: runtime error: (.*)$/.exec(l)).filter(Boolean);
+    return ub.length ? ub.map((m) => `line ${m[1]}: runtime error: ${m[2]}`).join('\n') : null;
+  }
+  // One Compiler Explorer response → { kind: 'ok'|'compile-error'|'sanitizer'|'exit'|'error', stdout, text }
+  function cppOutcome(resp) {
+    if (!resp || resp.error) return { kind: 'error', stdout: '', text: String((resp && resp.error) || 'no response') };
+    if (resp.code !== 0) return { kind: 'compile-error', stdout: '', text: cppDiag(textLines(resp.stderr)) };
+    const ex = resp.execResult;
+    if (!ex) return { kind: 'ok', stdout: '', text: '' };
+    if (ex.buildResult && ex.buildResult.code !== 0) return { kind: 'compile-error', stdout: '', text: cppDiag(textLines(ex.buildResult.stderr)) };
+    const stdout = textLines(ex.stdout).map((l) => l + '\n').join('');
+    const err = textLines(ex.stderr);
+    const san = sanitizerSummary(err);
+    if (san) return { kind: 'sanitizer', stdout, text: san };
+    return { kind: ex.code === 0 ? 'ok' : 'exit', stdout, text: err.join('\n') };
+  }
+  function cppRecord(o) {
+    return { k: o.kind, o: o.stdout || '', t: o.kind === 'compile-error' || o.kind === 'error' ? o.text : '', e: o.kind === 'sanitizer' || o.kind === 'exit' ? o.text : '' };
+  }
+
   // Fence info string: "rust !run label" → { lang, flag, label }
-  const FLAGS = new Set(['run', 'panic', 'fail', 'clippy', 'hang']);
+  const FLAGS = new Set(['run', 'panic', 'fail', 'clippy', 'hang', 'asan', 'check']);
   function fenceInfo(info) {
     const m = /^(\w*)\s*(?:!(\w+))?\s*(.*)$/.exec(String(info || '').trim());
     const flag = m[2] && FLAGS.has(m[2]) ? m[2] : null;
@@ -215,8 +261,8 @@
     const ind = Math.min(...lines.filter((l) => l.trim()).map((l) => /^ */.exec(l)[0].length));
     return lines.map((l) => l.slice(Math.min(ind, /^ */.exec(l)[0].length)));
   }
-  // Every flagged rust fence in a markdown body: [{ flag, label, src }]
-  function fences(body) {
+  // Every flagged fence of one language in a markdown body: [{ flag, label, src }]
+  function flagged(body, lang, allowed) {
     const out = [];
     const Ls = dedent(body);
     for (let i = 0; i < Ls.length; i++) {
@@ -225,10 +271,12 @@
       const buf = [];
       for (i++; i < Ls.length && !/^(?:```|~~~)\s*$/.test(Ls[i]); i++) buf.push(Ls[i]);
       const f = fenceInfo(m[1]);
-      if (f.lang === 'rust' && f.flag) out.push({ flag: f.flag, label: f.label, src: buf.join('\n') });
+      if (f.lang === lang && f.flag && (!allowed || allowed.has(f.flag))) out.push({ flag: f.flag, label: f.label, src: buf.join('\n') });
     }
     return out;
   }
+  const fences = (body) => flagged(body, 'rust');
+  const cppFences = (body) => flagged(body, 'cpp', CPP_FLAGS);
   // What the page shows, what the compiler gets, and the key its recorded output is stored under.
   function snippet(flag, src) {
     const h = splitHidden(src);
@@ -237,7 +285,7 @@
     return { shown: h.shown, program, kind, key: key(kind, program) };
   }
 
-  const api = { splitHidden, programOf, buildTestCrate, parseLibtest, parseDiagnostics, cleanStderr, outcome, record, checkPredict, COMPILE_ERROR, PANICS, HANGS, parseReview, gradeReview, request, key, fenceInfo, dedent, fences, snippet };
+  const api = { splitHidden, programOf, buildTestCrate, parseLibtest, parseDiagnostics, cleanStderr, outcome, record, checkPredict, COMPILE_ERROR, PANICS, HANGS, parseReview, gradeReview, request, key, fenceInfo, dedent, fences, snippet, cppFences, cppRequest, cppOutcome, cppRecord };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RustHarness = api;

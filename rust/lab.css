@@ -79,6 +79,17 @@ body { background: var(--paper); }
 .vs-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .vs-grid .codeblock { margin: 0; }
 .vs-grid .codeblock.lang-java { border-top: 3px solid var(--blue); }
+.vs-grid .codeblock.lang-cpp { border-top: 3px solid var(--good); }
+.vs-side { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.vs-tabs { display: flex; gap: 4px; }
+.vs-tabs button { border: 1px solid var(--rule); background: var(--panel-2); color: var(--ink-3); border-radius: 6px; padding: 3px 10px; font: 600 12px/1.4 inherit; cursor: pointer; }
+.vs-side.tabbed .vs-pane { display: none; }
+html[data-compare="java"] .vs-side.tabbed .vs-pane[data-lang="java"],
+html[data-compare="cpp"] .vs-side.tabbed .vs-pane[data-lang="cpp"] { display: block; }
+html[data-compare="java"] .vs-tabs button[data-cmp="java"],
+html[data-compare="cpp"] .vs-tabs button[data-cmp="cpp"] { background: var(--panel); color: var(--ink); border-color: var(--ink-3); }
+.callout.cpp { border-color: color-mix(in srgb, var(--good) 40%, var(--rule)); background: var(--good-soft); }
+.callout.cpp > b:first-child { color: var(--good); }
 .vs-grid .codeblock.lang-rust { border-top: 3px solid var(--accent); }
 
 /* ── code blocks with the compiler's answer under them ── */
