@@ -16,6 +16,13 @@
               .map(s -> s.split("\\|")[3])
               .collect(Collectors.toList());
           ~~~
+          ~~~cpp
+          // C++20 ranges, C++23 ranges::to
+          auto ids = segments
+              | std::views::filter([](const std::string& s) { return s.starts_with("OBX"); })
+              | std::views::transform([](const std::string& s) { return nth_field(s, 3); })
+              | std::ranges::to<std::vector<std::string>>();
+          ~~~
           ~~~rust
           let ids: Vec<&str> = segments.iter()
               .filter(|s| s.starts_with("OBX"))
@@ -139,6 +146,18 @@
           | «\|x\| x + 1» | «x -> x + 1» |
           | «\|a, b\| { ... }» | «(a, b) -> { ... }» |
           | «move \|\| ...» | (no equivalent: the closure takes ownership of what it uses) |
+
+          :::cpp Closures are lambdas with the capture list worked out for you
+          | Rust | C++ |
+          |---|---|
+          | «\|x\| x + 1» | «[](int x) { return x + 1; }» |
+          | a closure that reads «count» | «[&count]»: captures by reference |
+          | a closure that changes «count» | «[&count]» too; Rust then makes it «FnMut» |
+          | «move \|\| ...» | «[=]» or «[x = std::move(x)]»: captures by value |
+          | the compiler picks the capture mode | you write the capture list |
+
+          The difference that matters: a C++ lambda capturing a local by reference can outlive it, and calling it is undefined behaviour. Rust rejects that closure at compile time (error E0373), which is why the next section is about «move».
+          :::
 
           A closure borrows the variables it mentions, following the Borrowing module's rules. So it can even change them:
 

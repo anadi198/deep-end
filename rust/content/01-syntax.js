@@ -222,6 +222,10 @@ const LIMIT: u32 = 21;`,
           | other | «as» (cast), «?» (propagate an error), «..» «..=» (ranges), «&» «&mut» «*» (references) | covered in later lessons |
 
           There is no «++» or «--», and no ternary «? :»: «if» is already an expression.
+
+          :::cpp In C++ terms
+          In C++, «if», «switch» and loops are statements, and «?:» is the only conditional expression. A Rust block that ends in a value works like a C++ lambda you call on the spot, «[&] { ...; return x; }()», without the ceremony. And Rust assignment returns «()», so the C++ habit «if (x = next())» does not compile.
+          :::
         `,
         predict: [
           {

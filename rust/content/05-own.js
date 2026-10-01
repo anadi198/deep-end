@@ -25,6 +25,27 @@
 
           «let t = s;» **moves** the string: the text on the heap now belongs to «t», and «s» is dead. Nothing was copied. The reason is cleanup: when a variable's scope ends, its value is freed. If «s» and «t» both owned the text, it would be freed twice. So the compiler makes the old name unusable instead.
 
+          ## C++: copy by default, move on request
+
+          ~~~cpp !run
+          int main() {
+              std::string a = "ADT^A01";
+              std::string b = a;            // a copy: both strings usable
+              std::string c = std::move(a); // a move: c takes a's buffer
+              std::cout << "[" << a << "] [" << b << "] [" << c << "]\n";
+          }
+          ~~~
+
+          C++ copies on «=» unless you write «std::move», and a moved-from object is still there, "valid but unspecified" (here, empty), and still compiles when you read it. Rust flips both defaults: «=» is the move, the moved-from name is rejected at compile time, and the copy is spelled out as «.clone()».
+
+          | | C++ | Rust |
+          |---|---|---|
+          | «b = a» on a string | deep copy | move; «a» is unusable |
+          | explicit copy | «b = a» (the default) | «b = a.clone()» |
+          | explicit move | «b = std::move(a)» | «b = a» (the default) |
+          | using «a» after the move | compiles; «a» is empty or garbage | error E0382 |
+          | destructor runs for | both «a» (the empty shell) and «b» | only the current owner |
+
           ~~~seq What happens to the string
           actors: s, t, heap text
           s -> heap text: owns "ADT^A01"
@@ -57,6 +78,15 @@
 
           :::java Reading signatures, the Java way
           «fn store(msg: String)» is like handing over the object and promising never to touch it again. «fn store(msg: &str)» is the Java you know: the function looks at it, you keep it. The Borrowing module is about that «&».
+          :::
+
+          :::cpp Reading signatures, the C++ way
+          | Rust parameter | C++ parameter | Who owns it after the call |
+          |---|---|---|
+          | «msg: String» | «std::string msg», called as «store(std::move(msg))» | the function |
+          | «msg: &str» | «std::string_view msg» or «const std::string& msg» | still the caller |
+          | «msg: &mut String» | «std::string& msg» | still the caller, and the function may change it |
+          | «msg: Box<Frame>» | «std::unique_ptr<Frame> msg» | the function |
           :::
 
           ## Returning hands it back
@@ -191,6 +221,25 @@
 
           Values are dropped at the closing brace, in reverse order of creation.
 
+          :::cpp In C++ terms
+          «Drop» is a destructor, and this is RAII: cleanup tied to scope, in reverse order, exactly as in C++. The difference is moves. C++ still runs the destructor of a moved-from object (an empty shell), so every destructor must cope with one; Rust knows the value moved and runs «drop» once, for the current owner only.
+          :::
+
+          ~~~cpp !run Two destructor calls for one value
+          struct Conn {
+              std::string name;
+              explicit Conn(std::string n) : name(std::move(n)) {}
+              Conn(Conn&&) = default;
+              ~Conn() { std::cout << "closing [" << name << "]\n"; }
+          };
+
+          int main() {
+              Conn a("epic");
+              Conn b = std::move(a);
+              std::cout << "working\n";
+          }
+          ~~~
+
           @predict 0
 
           @stop
@@ -270,6 +319,10 @@
           | «PathBuf» | «&Path» |
 
           A string literal like «"MSH"» is a «&'static str»: a view into text baked into the program.
+
+          :::cpp In C++ terms
+          The same split exists in C++17: «std::string» owns, «std::string_view» and «std::span<T>» are views. The difference is who checks the view. In C++ nothing stops a «string_view» from outliving its string; in Rust the borrow checker does. The Borrowing module shows the C++ version failing at run time and the Rust version failing to compile.
+          :::
 
           ## Functions should take the view
 

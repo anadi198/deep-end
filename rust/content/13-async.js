@@ -19,6 +19,14 @@
           send(frame).block();          // subscribes and waits
           send(frame).subscribe();      // fire and forget
           ~~~
+          ~~~cpp
+          // std::async is eager: the work starts at once, on a thread
+          auto fut = std::async(std::launch::async, [&] { return write(frame); });
+          Ack ack = fut.get();          // waits for it
+
+          // C++20 coroutines can be lazy like Rust futures, but the
+          // standard library ships no task type or runtime to drive them.
+          ~~~
           ~~~rust
           async fn send(f: Frame) -> Ack { write(f).await }
 

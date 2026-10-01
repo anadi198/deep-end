@@ -25,6 +25,7 @@
           | «isize», «usize» | pointer width: 64 on 64-bit targets | the size of a memory address |
 
           - Java has only signed types; Rust's unsigned ones are the norm for sizes, bytes and counts.
+          - In C++, «int» and «long» have platform-dependent widths («long» is 64 bits on Linux and 32 on Windows). Rust's types are C++'s «<cstdint>» types, everywhere: «i32» is «std::int32_t», «u8» is «std::uint8_t», «usize» is «std::size_t».
           - «usize» is the type of every «.len()» and the only type that can index a slice or a «Vec».
           - Each type has associated constants: «u16::MAX», «i8::MIN», «u32::BITS».
 
@@ -80,6 +81,20 @@
           5. «i32::MIN.abs()» and «i32::MIN / -1» overflow, because 2,147,483,648 does not fit.
 
           Tests and the Playground are debug builds, so there overflow is loud. Production is usually a release build, where the same code quietly produces a wrapped value.
+
+          :::cpp In C++ terms
+          In C++, unsigned overflow wraps by definition, and **signed overflow is undefined behaviour**: the optimiser may assume it never happens and rewrite the code on that basis. Rust has no undefined behaviour here. Every integer overflow either panics (debug) or wraps in two's complement (release), and both are defined.
+          :::
+
+          ~~~cpp !asan Signed overflow in C++, under UBSan
+          int add(int a, int b) {
+              return a + b;
+          }
+
+          int main() {
+              std::cout << add(2147483647, 1) << '\n';
+          }
+          ~~~
 
           @predict 0
 
@@ -209,6 +224,20 @@ fn main() {
           - «[0u8; 1024]» repeats one value; «a.len()» is the length; «a[i]» panics when «i» is out of range, and «a.get(i)» returns an «Option».
           - Arrays and tuples are «Copy» when their elements are, so assigning one copies it.
           - «&a» on an array gives a slice, «&[T]», the type most functions accept (the Collections and text module).
+          - C++ counterparts: a tuple is «std::tuple» or «std::pair»; «[T; N]» is «std::array<T, N>». But indexing a C array, or a «std::array» in an optimised build, is **not** checked («a.at(i)» is), so an out-of-range index reads whatever memory is there:
+
+          ~~~cpp !asan Indexing past the end in C++
+          int byte_at(const int* buf, std::size_t i) {
+              return buf[i];
+          }
+
+          int main() {
+              int buf[4] = {1, 2, 3, 4};
+              std::cout << byte_at(buf, 4) << '\n';
+          }
+          ~~~
+
+          Recent GCC turns on standard-library assertions in unoptimised builds, so «std::array»'s «[]» does get checked there; release builds, where it matters, drop the check. Rust checks every index in every build.
 
           ~~~rust !run
           fn main() {
@@ -261,6 +290,19 @@ fn main() {
               println!("{total}");
           }
           ~~~
+
+          C++ converts between number types implicitly, including narrowing ones:
+
+          ~~~cpp !run Implicit conversions in C++
+          int main() {
+              int len = 300;
+              std::uint8_t byte = len;   // narrows silently: 300 becomes 44
+              unsigned total = -1;       // -1 becomes 4294967295
+              std::cout << int(byte) << ' ' << total << '\n';
+          }
+          ~~~
+
+          Brace initialisation («std::uint8_t byte{len};») rejects narrowing, which is the closest C++ gets to Rust's rule. In Rust every conversion is written out, either as «as» or as «From»/«TryFrom».
 
           ## What «as» does
 

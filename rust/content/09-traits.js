@@ -20,6 +20,17 @@
               public void send(byte[] frame) { /* write */ }
           }
           ~~~
+          ~~~cpp !check
+          struct Sink {
+              virtual void send(std::span<const std::uint8_t> frame) = 0;
+              virtual std::string name() const { return "sink"; }
+              virtual ~Sink() = default;
+          };
+
+          struct FileSink : Sink {
+              void send(std::span<const std::uint8_t>) override {}
+          };
+          ~~~
           ~~~rust
           trait Sink {
               fn send(&mut self, frame: &[u8]) -> std::io::Result<()>;
@@ -37,6 +48,7 @@
           - «impl Sink for FileSink» is «class FileSink implements Sink».
           - A trait method with a body is a default method, as in Java.
           - The implementation lives in its own «impl ... for ...» block, apart from the struct and its other methods. One type can have many of these blocks, one per trait.
+          - In C++ terms, a trait plays two roles. Used with «dyn», it is an abstract base class with virtual functions, minus the inheritance: no base-class fields, and a struct "inherits" nothing. Used as a generic bound, it is a C++20 concept, checked when the generic function is defined rather than when a template is instantiated. The next lessons show both.
 
           ## Implementing your trait for someone else's type
 
@@ -257,6 +269,22 @@ fn main() {
 
           All three mean "any type that implements «Sink»". The compiler generates a separate copy of the function for each concrete type it is called with, so there is no run-time dispatch.
 
+          :::cpp In C++ terms
+          This is a template, and the copies are template instantiations: the same monomorphisation, the same code size trade-off. The bound «S: Sink» is a C++20 concept. The difference is when the checking happens: a Rust generic body may only use what its bounds promise, so it is checked once, at its definition; a C++ template body is checked at each instantiation, which is where those long template error messages come from.
+          :::
+
+          ~~~cpp !check The same bound as a C++20 concept
+          template <typename T>
+          concept Sink = requires(T t, std::span<const std::uint8_t> frame) { t.send(frame); };
+
+          template <Sink S>
+          void send_all(S& sink, const std::vector<std::vector<std::uint8_t>>& frames) {
+              for (const auto& f : frames) sink.send(f);
+          }
+          ~~~
+
+          And «dyn Sink» below is a pointer to an abstract base class: a pointer to the data plus a pointer to a table of functions (a vtable), resolved at run time.
+
           ## And the run-time one
 
           ~~~rust
@@ -352,6 +380,10 @@ fn main() {
 
           Derived comparisons are **lexicographic in declaration order**: fields top to bottom for a struct, and for an enum, earlier variants are smaller.
 
+          :::cpp In C++ terms
+          «#[derive(PartialEq)]» is C++20's «bool operator==(const T&) const = default;», and «#[derive(PartialOrd, Ord)]» is «auto operator<=>(const T&) const = default;»: the same member-by-member comparison in declaration order. «Clone» is a copy constructor you have to call by name, «Copy» marks a type as trivially copyable, «Drop» is the destructor, and «Default» is a default constructor.
+          :::
+
           ## Operators are traits
 
           | Expression | Calls |
@@ -362,6 +394,8 @@ fn main() {
           | «a == b», «a < b» | «PartialEq::eq(&a, &b)», «PartialOrd::lt(&a, &b)» |
           | «*a» | «*Deref::deref(&a)» |
           | «f(x)» on a closure | «Fn::call», «FnMut», «FnOnce» |
+
+          This is C++ operator overloading with names: «impl Add for Bytes» is «Bytes operator+(Bytes, Bytes)», and «Deref» is «operator*» and «operator->». Rust lets you overload only the operators that have a trait, so there is no overloading of «&&», «||», «=» or «,».
 
           ~~~rust !run
           use std::ops::Add;

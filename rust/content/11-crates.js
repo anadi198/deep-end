@@ -146,6 +146,10 @@ fn main() {
 
           «mod net;» in «main.rs» means "compile «src/net.rs» (or «src/net/mod.rs») as the module «net»". A file that no «mod» line mentions is not compiled at all, which surprises Java developers: there is no classpath scan.
 
+          :::cpp In C++ terms
+          «mod net;» is not «#include "net.h"». There is no textual pasting and there are no header files: a module is compiled once as part of the crate, with its own namespace (like a C++ «namespace») and its own privacy. Declaration order does not matter, so there are no forward declarations, and a crate is a single compilation unit rather than a pile of «.cpp» files linked together.
+          :::
+
           | Path | Means | Java |
           |---|---|---|
           | «crate::net::frame::parse» | from the root of this crate | a fully qualified name |
@@ -275,6 +279,10 @@ fn main() {
 
           :::java In Java terms
           Derive macros are Lombok. Attribute macros are closer to an annotation processor that rewrites the method; Spring does similar things with proxies at run time, Rust does them at compile time.
+          :::
+
+          :::cpp Not the C preprocessor
+          A Rust macro is not a «#define». It works on parsed syntax rather than text, is hygienic (a variable it introduces cannot collide with yours), and every call is marked with «!», so you can always see where code is being generated. The jobs C++ templates do (generic code) belong to generics and traits, not macros; derive macros do what you would otherwise write by hand as «operator==», a copy constructor and friends.
           :::
 
           Nothing magic happens inside a macro: it writes ordinary Rust. «#[tokio::main]» on «async fn main» writes roughly this:

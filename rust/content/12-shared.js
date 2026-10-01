@@ -42,6 +42,19 @@
           ~~~
 
           So in real code you see «Arc<Mutex<T>>», «Arc<RwLock<T>>» or «Arc<AtomicU64>». «Rc» is the single-thread version of «Arc»: cheaper, and the compiler refuses to let it cross threads (last lesson of this module).
+
+          :::cpp The smart pointers, side by side
+          | Rust | C++ | Note |
+          |---|---|---|
+          | «Box<T>» | «std::unique_ptr<T>» | one owner, on the heap; moving it moves ownership |
+          | «Arc<T>» | «std::shared_ptr<T>» | atomic reference count |
+          | «Rc<T>» | none in the standard library | a non-atomic count: faster, single thread only |
+          | «Weak<T>» | «std::weak_ptr<T>» | does not keep the value alive; breaks cycles |
+          | «&T», «&mut T» | «const T&», «T&» | plus compile-time borrow checking |
+          | raw pointers | «T*» | exist in Rust, but only usable in «unsafe» code |
+
+          One more difference: a «shared_ptr» gives every owner mutable access to the object, so sharing it across threads is a data race unless you add a lock. An «Arc» gives only shared (read-only) access, so the compiler forces the lock or atomic in, as above.
+          :::
         `,
         predict: [
           {
@@ -66,6 +79,17 @@
               void inc() { synchronized (lock) { n++; } }
           }
           ~~~
+          ~~~cpp !check
+          class Counter {
+              std::mutex lock_;
+              std::uint64_t n_ = 0;   // nothing stops code touching n_ without the lock
+          public:
+              void inc() {
+                  std::lock_guard<std::mutex> guard(lock_);   // unlocks at the closing brace
+                  ++n_;
+              }
+          };
+          ~~~
           ~~~rust
           struct Counter {
               n: Mutex<u64>,   // n is only reachable through the lock
@@ -76,7 +100,7 @@
           ~~~
           :::
 
-          In Java the lock and the data are separate, and discipline keeps them together. In Rust the data lives **inside** the «Mutex». «lock()» returns a guard, «*guard» is the data, and dropping the guard unlocks.
+          In Java and C++ the lock and the data are separate, and discipline keeps them together. In Rust the data lives **inside** the «Mutex». «lock()» returns a guard, «*guard» is the data, and dropping the guard unlocks: the guard is C++'s «std::lock_guard», except that it is also the only way to reach the data.
 
           ~~~rust !run
           use std::sync::{Arc, Mutex};
@@ -132,6 +156,10 @@
         remember: '«Send» means a value may move to another thread; «Sync» means it may be shared between threads. The compiler checks both, which is why data races do not compile.',
         cue: 'E0277 "cannot be sent between threads safely" → something inside is not thread-safe: an «Rc», a «RefCell», or a std «MutexGuard» held across «.await»',
         body: R`
+          :::cpp In C++ terms
+          C++ has no equivalent check. Sharing a non-thread-safe object between threads compiles, and the resulting data race is undefined behaviour, found at run time by ThreadSanitizer if at all. «Send» and «Sync» are marker traits the compiler works out for every type from its fields, and they turn that run-time hunt into a compile error.
+          :::
+
           ~~~rust !fail
           use std::rc::Rc;
           use std::thread;

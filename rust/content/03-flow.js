@@ -143,6 +143,22 @@
           A Java «switch» expression over a sealed type is also checked for exhaustiveness. Rust applies the check to every «match», over any type: integers, tuples, slices, enums and references.
           :::
 
+          :::cpp «switch», side by side
+          A C++ «switch» works only on integers and enums, is a statement rather than an expression, needs no «default», and falls through to the next case unless it hits a «break». A missing enum case is at most a warning. A Rust «match» never falls through, produces a value, works on any type, and does not compile with a case missing.
+          :::
+
+          ~~~cpp !run Fall-through in C++
+          int main() {
+              int code = 1;
+              switch (code) {
+                  case 1: std::cout << "one ";
+                  case 2: std::cout << "two ";
+                  default: std::cout << "other";
+              }
+              std::cout << '\n';
+          }
+          ~~~
+
           @predict 0
         `,
         predict: [

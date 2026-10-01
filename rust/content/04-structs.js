@@ -100,6 +100,18 @@ fn main() {
               public void retry() { retries++; }
           }
           ~~~
+          ~~~cpp !check frame.cpp
+          class Frame {
+              std::string kind_;
+              unsigned retries_ = 0;
+
+          public:
+              explicit Frame(std::string kind) : kind_(std::move(kind)) {}
+
+              const std::string& kind() const { return kind_; }
+              void retry() { ++retries_; }
+          };
+          ~~~
           ~~~rust frame.rs
           pub struct Frame {
               kind: String,
@@ -131,6 +143,18 @@ fn main() {
           | «&mut self» | «self: &mut Self» | changes it; the caller needs a mutable place |
           | «self» | «self: Self» | takes ownership; the caller cannot use the value afterwards |
           | «mut self» | «mut self: Self» | takes ownership and may change its own copy |
+
+          :::cpp In C++ terms
+          | Rust | C++ |
+          |---|---|
+          | «fn kind(&self)» | «kind() const»: a member function that cannot change the object |
+          | «fn retry(&mut self)» | «retry()»: a non-const member function |
+          | «fn into_name(self)» | no direct equivalent; nearest is taking the object by value or as «Frame&&» |
+          | «fn new(..) -> Self» | a static member function; Rust has no constructors |
+          | «const LIMIT: u64» | «static constexpr std::uint64_t LIMIT» |
+
+          There is no hidden «this»: the receiver is an ordinary parameter named «self», so a method is a function whose first argument you can see.
+          :::
 
           - There are no constructors: «new» is a naming convention for an associated function that returns «Self». Others are «with_capacity», «from_parts», and the «Default» trait.
           - A type can have any number of «impl» blocks.
@@ -238,6 +262,13 @@ fn main() {
           record Error(String text) implements Ack {}
           record Reject(int code) implements Ack {}
           ~~~
+          ~~~cpp !check
+          struct Accept {};
+          struct Error { std::string text; };
+          struct Reject { std::uint16_t code; };
+
+          using Ack = std::variant<Accept, Error, Reject>;
+          ~~~
           ~~~rust
           enum Ack {
               Accept,
@@ -245,6 +276,10 @@ fn main() {
               Reject { code: u16 },
           }
           ~~~
+          :::
+
+          :::cpp In C++ terms
+          A plain C++ «enum» or «enum class» is only Rust's field-less enum. Variants that carry data are «std::variant» (C++17), taken apart with «std::visit» or «std::get_if». A «switch» over an «enum class» that misses a case is a warning («-Wswitch»), and it still compiles; a Rust «match» that misses a variant does not compile.
           :::
 
           «match» takes the data back out:

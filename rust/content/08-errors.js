@@ -15,6 +15,12 @@
           int p = port;                          // NullPointerException if absent
           int q = Optional.ofNullable(ports.get("lab")).orElse(2575);
           ~~~
+          ~~~cpp
+          auto it = ports.find("lab");        // end() if absent
+          int p = it->second;                 // undefined behaviour if absent
+          int r = ports["lab"];               // inserts 0 if absent, silently
+          int q = ports.contains("lab") ? ports.at("lab") : 2575;
+          ~~~
           ~~~rust
           let port = ports.get("lab");          // Option<&u16>
           let p = *port.unwrap();               // panics if absent
@@ -23,6 +29,10 @@
           :::
 
           There is no null in Rust. Anything that might be missing is an «Option», and the type system will not let you use the value inside until you have said what happens when it is absent.
+
+          :::cpp In C++ terms
+          «Option<T>» is «std::optional<T>» (C++17) with the escape hatches removed: «*opt» on an empty «std::optional» is undefined behaviour, while Rust has no unchecked way in, only «match», the combinators, or «unwrap», which panics with a message. A raw pointer that may be null is «Option<&T>» or «Option<Box<T>>», which cost nothing extra: Rust uses the null bit pattern to mean «None».
+          :::
 
           ## The ways to open an Option
 
@@ -92,6 +102,16 @@
               return Integer.parseInt(s.trim());
           }
           ~~~
+          ~~~cpp !check
+          // C++23 std::expected: a value or an error, like Result
+          std::expected<int, std::string> parse_port(const std::string& s) {
+              try {
+                  return std::stoi(s);
+              } catch (const std::exception& e) {
+                  return std::unexpected(std::string(e.what()));
+              }
+          }
+          ~~~
           ~~~rust
           fn parse_port(s: &str) -> Result<u16, std::num::ParseIntError> {
               s.trim().parse::<u16>()
@@ -100,6 +120,10 @@
           :::
 
           The error type is part of the signature, like «throws». But it is an ordinary value: the caller gets it back and decides what to do.
+
+          :::cpp In C++ terms
+          «Result<T, E>» is C++23's «std::expected<T, E>», except that in Rust it is the only error mechanism: there are no exceptions, so a function's failures are always in its signature. The C++ example above has to catch «std::stoi»'s exceptions to produce one. Panics are the nearest thing to exceptions, and they are for bugs, not for expected failures (the last lesson of this module).
+          :::
 
           ~~~rust !run
           fn parse_port(s: &str) -> Result<u16, std::num::ParseIntError> {
@@ -165,6 +189,12 @@
           Config load(Path p) throws IOException {
               String text = Files.readString(p);   // an exception goes up
               return Config.parse(text);           // so does this one
+          }
+          ~~~
+          ~~~cpp
+          Config load(const std::filesystem::path& p) {
+              std::string text = read_file(p);   // may throw: nothing in the
+              return Config::parse(text);        // signature says so
           }
           ~~~
           ~~~rust
@@ -413,6 +443,10 @@
           @stop
 
           ## What a panic actually does
+
+          :::cpp In C++ terms
+          A panic behaves like a C++ exception nobody catches: it unwinds the stack, running every «Drop» (destructor) on the way, and then ends the thread. It is not a control-flow tool, though: there is no «try»/«catch» for ordinary errors (those are «Result»). Setting «panic = "abort"» in «Cargo.toml» makes it behave like «std::abort()» instead, with no unwinding.
+          :::
 
           - In a plain program: it prints the message and the process exits with code 101.
           - In a thread or an async task: **only that thread or task dies**. The rest of the program keeps running. The panic surfaces only through the handle, which is easy to ignore.

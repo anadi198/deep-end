@@ -17,7 +17,9 @@
           | Applied | Shared state, Async, Channels, Networking, Wire formats | concurrency and I/O with Tokio, serde, protobuf and gRPC |
           | Practice | Find the bugs | longer programs that mix everything |
 
-          Each module builds on the ones before it. Java comparisons appear where they add information, not as a substitute for the Rust rule.
+          Each module builds on the ones before it. Java and C++ comparisons appear where they add information, not as a substitute for the Rust rule. In a side-by-side, a **Java / C++** tab picks the language, and the choice is remembered everywhere.
+
+          C++ snippets are compiled, and run where they show output, with GCC 16 in C++23 mode on Compiler Explorer when the course is built. The standard headers are included for you, so the snippets leave out their «#include» lines. Where C++ has undefined behaviour, the program runs under AddressSanitizer and UndefinedBehaviorSanitizer, and the page shows their report: the run-time version of what Rust's compiler rejects.
 
           ## How a lesson works
 

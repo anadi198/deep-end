@@ -87,6 +87,10 @@ fn main() {
         body: R`
           The Ownership module covered «String» versus «&str». This lesson is about their contents.
 
+          :::cpp In C++ terms
+          A «std::string» is a sequence of bytes with no idea of an encoding: «s[0]» returns the first byte, and «s.size()» counts bytes. A Rust «String» is the same buffer with one promise added, that it is always valid UTF-8, which is why it refuses «s[0]» (half of «é» is not a character) and makes you say whether you want bytes or characters.
+          :::
+
           ## Literals
 
           | Written | Type | Note |
@@ -206,6 +210,8 @@ fn main() {
 
           When the length reaches the capacity, «push» allocates a larger buffer (typically double) and moves every element: that is why it is amortised O(1) and why «with_capacity» helps when the size is known.
 
+          «Vec<T>» is «std::vector<T>»: «push» is «push_back», «with_capacity» is «reserve», and the reallocation is the same, which is exactly why a reference into a «Vec» cannot survive a «push» (the Borrowing module showed the C++ version of that bug). A slice «&[T]» is «std::span<const T>», and «&mut [T]» is «std::span<T>».
+
           ~~~rust !run
           use std::collections::VecDeque;
 
@@ -274,6 +280,7 @@ fn main() {
           | «HashSet::insert(x)» | «bool» | «false» if it was already there |
 
           - A «HashMap<String, V>» can be looked up with a «&str»: «map.get("lab-a")».
+          - «HashMap» is «std::unordered_map» and «BTreeMap» is «std::map», with one trap removed: C++'s «m[key]» inserts a default value when the key is missing, while Rust's «map[&key]» panics and «get» returns «None». Inserting is always explicit, usually through «entry».
           - Floats cannot be keys (not «Eq» or «Hash»); neither can anything that does not derive or implement both.
           - Iterating a «HashMap» twice may give different orders on different runs. Sort, or use a «BTreeMap», when order matters.
 

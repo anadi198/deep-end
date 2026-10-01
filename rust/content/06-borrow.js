@@ -19,6 +19,12 @@
           rw.readLock().lock();   // many threads may hold this
           rw.writeLock().lock();  // only one, and no readers
           ~~~
+          ~~~cpp
+          const auto& r1 = data;  // any number of references
+          const auto& r2 = data;
+          auto& w = data;         // and a mutable one at the same time:
+          w.push_back(4);         // allowed, unchecked, r1 and r2 see it
+          ~~~
           ~~~rust
           let r1 = &data;       // any number of shared borrows
           let r2 = &data;
@@ -40,6 +46,19 @@
           ~~~
 
           Why the compiler refuses: «push» may need a bigger buffer, which moves every element to new memory. «first» would then point at freed memory. Java's version of this bug is a «ConcurrentModificationException» at run time, if you are lucky. Here it is a compile error.
+
+          C++ has exactly this bug, and calls it **iterator invalidation**. It compiles without a warning. Run under AddressSanitizer, the program is caught reading freed memory:
+
+          ~~~cpp !asan The same code in C++
+          int main() {
+              std::vector<int> queue = {1, 8};
+              const int& first = queue[0];
+              queue.push_back(3);
+              std::cout << first << '\n';
+          }
+          ~~~
+
+          Without the sanitizer it may print 1, print garbage, or crash, depending on the allocator: undefined behaviour. The borrow rule is the compile-time version of "do not hold a reference into a «vector» across «push_back»", a rule C++ programmers keep in their heads.
 
           @stop
 
@@ -156,6 +175,23 @@
           ~~~
 
           «upper» is dropped when «header» returns, so a reference into it would dangle. The fix is to return an owned «String».
+
+          C++ accepts the equivalent with «std::string_view», and the view outlives the string it points into:
+
+          ~~~cpp !asan The same function in C++
+          std::string_view header(std::string_view raw) {
+              std::string upper(raw);
+              for (char& c : upper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+              return std::string_view(upper).substr(0, 3);
+          }
+
+          int main() {
+              std::string_view h = header("msh|a long enough line to live on the heap");
+              std::cout << h << '\n';
+          }
+          ~~~
+
+          A lifetime in Rust is the compiler tracking, for every reference, which owner it points into and how long that owner lives. C++ has the same references and no such tracking, so this class of bug turns up at run time, if a sanitizer or a crash finds it.
 
           ## «'static», threads and «spawn»
 
