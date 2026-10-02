@@ -34,7 +34,7 @@ Then open http://localhost:8767/rust/.
 From this folder:
 
 ```bash
-node --test test/
+node --test "test/*.test.mjs"
 ```
 
 ```bash

@@ -53,7 +53,7 @@ Cloud sync needs a Firebase web config, and that config is never committed:
 ## Tests
 
 ```bash
-node --test shared/test/
+node --test "shared/test/*.test.mjs"
 ```
 
 Each lab's README lists its own checks.
