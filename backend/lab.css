@@ -262,3 +262,24 @@ body { background: var(--paper); }
   .sim-legend .yl { margin-left: 0; width: 100%; }
   .defend .df-f .ans { padding-left: 12px; }
 }
+
+/* ── quorum and ring diagrams ── */
+.sim-quorumwrap, .sim-ringwrap { display: grid; gap: 6px; justify-items: start; }
+.sim-quorum { width: 100%; max-width: 420px; height: auto; }
+.sim-quorum .node { fill: var(--panel-2); stroke: var(--ink-3); stroke-width: 1.5; }
+.sim-quorum .has .node { fill: var(--s1); stroke: var(--s1); }
+.sim-quorum .ring { fill: none; stroke: var(--s2); stroke-width: 2.5; stroke-dasharray: 5 3; }
+.sim-quorum .down .node { fill: var(--own-none); stroke: var(--rule); }
+.sim-quorum .v { fill: var(--ink); font: 700 12px var(--f-mono); text-anchor: middle; }
+.sim-quorum .has .v { fill: #fff; }
+.sim-quorum .x { fill: var(--bad); font: 800 15px var(--f-ui); text-anchor: middle; }
+.sim-quorum .lbl { fill: var(--ink-3); font: 600 10.5px var(--f-ui); text-anchor: middle; }
+.sim-legend i.q-has { background: var(--s1); height: 10px; width: 10px; border-radius: 50%; }
+.sim-legend i.q-read { border: 2px dashed var(--s2); height: 10px; width: 10px; border-radius: 50%; background: transparent; }
+.sim-legend i.q-down { background: var(--own-none); height: 10px; width: 10px; border-radius: 50%; }
+.sim-ring { width: 100%; max-width: 280px; height: auto; }
+.sim-ring .track { fill: none; stroke: var(--rule); stroke-width: 1.5; }
+.sim-ring .tok { stroke: var(--ink-3); stroke-width: 1; opacity: .55; }
+.sim-ring .tok.hot { stroke: var(--s2); stroke-width: 2; opacity: 1; }
+.sim-ring .mid { fill: var(--ink); font: 700 13px var(--f-ui); text-anchor: middle; }
+.sim-ring .mid.sub { fill: var(--ink-3); font-weight: 500; font-size: 11.5px; }

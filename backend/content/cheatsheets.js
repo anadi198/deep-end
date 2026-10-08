@@ -22,6 +22,12 @@
         | Repeated rebalances, «CommitFailedException» | batches slower than «max.poll.interval.ms» | records per poll, per-record timeouts |
         | One partition's lag grows forever | a poison record retried in place | error classification, the dead-letter path |
         | The DLQ fills with healthy records | an outage treated as bad data | pause and retry on transient errors |
+        | «deadlock detected» (40P01) | two code paths locking the same rows in different orders | the deadlock log detail; one global lock order |
+        | A sequential scan despite an index | predicate shape, low selectivity, or bad statistics | EXPLAIN (ANALYZE, BUFFERS): estimated vs actual rows |
+        | Outage during a "fast" migration | an ALTER waiting for its lock, with every query queued behind it | long transactions in «pg_stat_activity»; lock_timeout |
+        | Stale reads right after a write | R + W ≤ RF, or reads from a lagging replica | consistency levels; read-your-writes routing |
+        | Two services disagree | a dual write, or a consumer applying events blindly | outbox or CDC; version checks; reconciliation |
+        | Adding a cache node empties the cache | hash mod N placement | consistent hashing with virtual nodes |
       `,
     },
     {
@@ -70,6 +76,34 @@
         | «max.poll.records» | 500 |
         | «enable.auto.commit» / interval | true / 5 s |
         | producer «enable.idempotence» / «acks» | true / all |
+
+        ## PostgreSQL (18)
+
+        | Setting or rule | Default or fact |
+        |---|---|
+        | «deadlock_timeout» | 1 s |
+        | «lock_timeout» | 0: wait forever |
+        | «log_lock_waits» | off (the PostgreSQL 19 beta turns it on) |
+        | most «ALTER TABLE» forms | ACCESS EXCLUSIVE |
+        | «VALIDATE CONSTRAINT», «CREATE INDEX CONCURRENTLY» | SHARE UPDATE EXCLUSIVE |
+        | «ADD FOREIGN KEY» | SHARE ROW EXCLUSIVE on both tables |
+        | «random_page_cost» / «seq_page_cost» | 4.0 / 1.0 |
+
+        ## Kafka brokers
+
+        | Setting | Default |
+        |---|---|
+        | «min.insync.replicas» | 1 |
+        | «unclean.leader.election.enable» | false |
+
+        ## Cassandra and MongoDB
+
+        | Thing | Default or fact |
+        |---|---|
+        | QUORUM | floor(RF / 2) + 1 |
+        | «max_hint_window» | 3 hours |
+        | «num_tokens» (shipped config) | 16 |
+        | MongoDB document size | 16 MiB, 100 levels of nesting |
 
         ## Frameworks
 

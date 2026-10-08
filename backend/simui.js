@@ -25,7 +25,7 @@
   function controlsHtml(spec, p) {
     return spec.params.filter((q) => visible(q, p)).map((q) => {
       const id = `sc${uid}-${q.id}`;
-      if (q.type === 'select') return `<label class="sc sel" for="${id}"><span>${esc(q.label)}</span><select id="${id}" data-p="${q.id}">${q.options.map(([v, t]) => `<option value="${esc(v)}" ${p[q.id] === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
+      if (q.type === 'select') return `<label class="sc sel" for="${id}"><span>${esc(q.label)}</span><select id="${id}" data-p="${q.id}">${q.options.map(([v, t]) => `<option value="${esc(v)}" ${String(p[q.id]) === String(v) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
       if (q.type === 'toggle') return `<label class="sc tog" for="${id}"><input type="checkbox" id="${id}" data-p="${q.id}" ${p[q.id] ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>${esc(q.label)}</span></label>`;
       return `<label class="sc rng" for="${id}"><span>${esc(q.label)} <output>${fmt(p[q.id])}${q.unit ? ` ${esc(q.unit)}` : ''}</output></span><input type="range" id="${id}" data-p="${q.id}" min="${q.min}" max="${q.max}" step="${q.step || 1}" value="${p[q.id]}"></label>`;
     }).join('');
@@ -143,7 +143,7 @@
     return `<div class="sim-ownwrap"><div class="sim-legend">${used.map((o) => `<span><i style="background:${SERIES[o % SERIES.length]}"></i>${v.names[o]}</span>`).join('')}<span><i style="background:var(--own-none)"></i>not assigned</span><span><i class="hatch"></i>assigned, nobody reading</span><span class="yl">partition × seconds</span></div>${s}</div>`;
   }
   function storyHtml(st) {
-    return `<details class="sim-story" open><summary>${esc(st.title)}</summary><ol>${st.steps.map((x) => `<li><span class="ms">${x.ms === null ? 'result' : `${x.ms.toLocaleString('en')} ms`}</span><span>${esc(x.what)}</span></li>`).join('')}</ol></details>`;
+    return `<details class="sim-story" open><summary>${esc(st.title)}</summary><ol>${st.steps.map((x) => `<li><span class="ms">${esc(x.tag || (x.ms === null ? 'result' : `${x.ms.toLocaleString('en')} ms`))}</span><span>${esc(x.what)}</span></li>`).join('')}</ol></details>`;
   }
 
   /* ───────────── compare ───────────── */
