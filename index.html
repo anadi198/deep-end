@@ -18,21 +18,21 @@
 :root {
   --paper: #F3F2EF; --panel: #FFFFFF; --panel-2: #F8F7F4; --ink: #1B2430; --ink-2: #4A5361; --ink-3: #7B8390;
   --rule: #DEDBD4; --accent: #1F5F99; --good: #237148; --shadow: 0 1px 2px rgba(27,36,48,.06), 0 8px 24px rgba(27,36,48,.07);
-  --rust: #A5401A; --lld: #0F766E; --dsa: #5A3EA6; --pg: #245A8D;
+  --rust: #A5401A; --lld: #0F766E; --dsa: #5A3EA6; --pg: #245A8D; --backend: #9B2C55;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #12161C; --panel: #1A2029; --panel-2: #212833; --ink: #E7EAEE; --ink-2: #B3BAC4; --ink-3: #848C98;
     --rule: #2E3642; --accent: #7DB6E8; --good: #6CC795; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
-    --rust: #E0875F; --lld: #4CC3B5; --dsa: #A792E6; --pg: #78AEE0;
+    --rust: #E0875F; --lld: #4CC3B5; --dsa: #A792E6; --pg: #78AEE0; --backend: #F08BB0;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --paper: #12161C; --panel: #1A2029; --panel-2: #212833; --ink: #E7EAEE; --ink-2: #B3BAC4; --ink-3: #848C98;
   --rule: #2E3642; --accent: #7DB6E8; --good: #6CC795; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
-  --rust: #E0875F; --lld: #4CC3B5; --dsa: #A792E6; --pg: #78AEE0;
+  --rust: #E0875F; --lld: #4CC3B5; --dsa: #A792E6; --pg: #78AEE0; --backend: #F08BB0;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -100,7 +100,7 @@ footer a { color: var(--ink-2); }
 
   <section class="hero">
     <h1>Deep End</h1>
-    <p>Hands-on labs for the things that get tested for real: query plans, algorithms, design, and Rust. Short lessons, real engines, and everything runs in your browser.</p>
+    <p>Hands-on labs for the things that get tested for real: query plans, algorithms, design, backend failure modes, and Rust. Short lessons, real engines, and everything runs in your browser.</p>
   </section>
 
   <div id="resume"></div>
@@ -155,6 +155,16 @@ footer a { color: var(--ink-2); }
         if (!done && !visited) return null;
         const seen = Object.values(visited || {}).map(Number).filter(Boolean);
         return { n: count(done), unit: 'exercises done', at: seen.length ? Math.max(...seen) : 0, href: lesson ? '#' + lesson : '' };
+      },
+    },
+    {
+      id: 'backend', name: 'Backend Lab', tag: 'backend', color: 'var(--backend)',
+      blurb: 'A quick look at backend systems under failure: timeouts, retries, caches, Kafka and databases, with simulators you can break and interview drills.',
+      icon: '<rect width="64" height="64" rx="14" fill="#9B2C55"/><path d="M12 40h9l5-16 8 26 6-18 4 8h8" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>',
+      read() {
+        const s = json('backendlab.v1'); if (!s) return null;
+        const n = count(s.read);
+        return { n, unit: n === 1 ? 'lesson read' : 'lessons read', at: Math.max((s.last && s.last.at) || 0, lastDay(s.days)), href: (s.last && s.last.hash) || '' };
       },
     },
   ];

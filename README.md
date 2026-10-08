@@ -8,6 +8,7 @@ Hands-on labs, one site: **https://anadi198.github.io/deep-end/**
 | [LLD Lab](https://anadi198.github.io/deep-end/lld/) | `lld/` | Low-level design, one pattern at a time, in Java |
 | [DSA Lab](https://anadi198.github.io/deep-end/dsa/) | `dsa/` | Interview patterns and Java problems, graded in the browser |
 | [Postgres Lab](https://anadi198.github.io/deep-end/pg/) | `pg/` | PostgreSQL 18 in the browser: plans, indexes, locking, schema design |
+| [Backend Lab](https://anadi198.github.io/deep-end/backend/) | `backend/` | A quick look at backend failure modes: timeouts, retries, caches, Kafka, databases; simulators and interview drills |
 
 Every lab runs in the browser with nothing to install. Each lab's own README covers its content, its checks and its optional local runner.
 
@@ -30,7 +31,7 @@ Then open http://localhost:8767. The in-browser compilers need http(s), so openi
 | `firestore.rules` | Security rules for the sync database |
 | `.github/workflows/pages.yml` | Deploys the site to GitHub Pages |
 
-Labs share one origin, so progress in the browser survives moving between them. Each lab keeps its own storage keys (`rustlab.*`, `lldlab.*`, `dsalab.*`, `pglab.*`).
+Labs share one origin, so progress in the browser survives moving between them. Each lab keeps its own storage keys (`rustlab.*`, `lldlab.*`, `dsalab.*`, `pglab.*`, `backendlab.*`).
 
 ## Adding a lab
 
