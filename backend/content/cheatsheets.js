@@ -115,6 +115,42 @@
       `,
     },
     {
+      id: 'sketch', title: 'A design sketch in four steps', kind: 'Interview',
+      blurb: 'The order for any "design X" prompt, and the arithmetic for sizing it.',
+      lede: 'Ask, size, shape, decide, break. Spend most of the time on the decisions and the failures.',
+      body: R`
+        ## The four steps
+
+        1. **The ask.** Two or three things it must do; who uses it; what "fast" and "correct" mean here.
+        2. **Size it.** Writes per second, reads per second, storage over a few years, the hottest item.
+        3. **The shape.** Boxes and arrows, drawn once. Keep the hot path short.
+        4. **The decisions that matter.** Two or three, each with its alternative and its cost. Then **where it breaks**: timeouts, retries, hot keys, stampedes, a lost cache, a duplicate event, a migration.
+
+        ## Sizing arithmetic
+
+        | To get | Use |
+        |---|---|
+        | per second from per day | divide by 86,400 (about 10^5) |
+        | 1 million a day | about 12 a second |
+        | 100 million a day | about 1,160 a second |
+        | 100 million a month | about 40 a second |
+        | peak | assume several times the average |
+        | in flight | rate × latency (Little's law) |
+        | codes of length n over 62 characters | 62^n: 6 gives 56.8 billion, 7 gives 3.5 trillion |
+        | storage | items × bytes each × retention |
+
+        ## Decisions that come up in almost every sketch
+
+        | Decision | The usual alternatives |
+        |---|---|
+        | Where the data lives | one relational database, a key-value store, a log |
+        | When work happens | on the request path, or asynchronously from an event |
+        | Precompute or compute on read | fan-out on write versus on read |
+        | How much staleness is acceptable | per operation: linearisable, read-your-writes, eventual |
+        | What happens on a timeout | idempotency keys, unknown states, reconciliation |
+      `,
+    },
+    {
       id: 'ladder', title: 'The follow-up ladder', kind: 'Interview',
       blurb: 'The five follow-ups behind almost every backend question, and how a strong answer is ordered.',
       lede: 'Say the mechanism, the failure and the trade-off before they are asked for. Then expect these.',

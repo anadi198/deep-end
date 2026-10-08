@@ -63,5 +63,17 @@
     { topic: 'distributed', q: 'Kafka\'s default «min.insync.replicas»?', options: ['1', '2', '3', 'all'], answer: 0, why: 'With 1, acks=all can be satisfied by the leader alone. Set 2 with RF 3 for durability.' },
     { topic: 'distributed', q: '9 nodes, hash mod N, add a 10th. Roughly how many keys move?', options: ['10%', '50%', '90%', '100%'], answer: 2, why: 'About N/(N+1). A ring moves about 1/(N+1).' },
     { topic: 'distributed', q: 'What do virtual nodes fix on a hash ring?', options: ['Hot keys', 'Uneven ownership between nodes', 'Replication lag', 'Clock skew'], answer: 1, why: 'Many points per node average out arc lengths.' },
+
+    /* ── design sketches ── */
+    { topic: 'design', q: '100 million new short links a month is roughly how many writes a second?', options: ['4', '40', '400', '4,000'], answer: 1, why: '100,000,000 / (30 × 86,400) is about 39.' },
+    { topic: 'design', q: 'How many 7-character base62 codes are there?', options: ['About 56.8 billion', 'About 3.5 trillion', 'About 78 billion', 'About 10 million'], answer: 1, why: '62^7 is about 3.52 trillion; 6 characters give about 56.8 billion.' },
+    { topic: 'design', q: 'A shortener wants every click in its analytics. Which redirect?', options: ['301', '302', '200 with a meta refresh', '404'], answer: 1, why: 'A 301 can be cached by browsers, which then skip the service entirely.' },
+    { topic: 'design', q: 'The redirect path should count clicks…', options: ['with a synchronous UPDATE', 'by publishing an event and aggregating elsewhere', 'in the browser only', 'not at all'], answer: 1, why: 'Keep the hottest path read-only and fast.' },
+    { topic: 'design', q: 'Fan-out on write makes which operation cheap?', options: ['Posting', 'Reading a feed', 'Following', 'Deleting'], answer: 1, why: 'The feed is precomputed, so a read is one lookup; posting pays per follower.' },
+    { topic: 'design', q: 'How do real feeds handle accounts with millions of followers?', options: ['Pure push', 'Pull their posts at read time; push everyone else', 'Rate-limit them', 'A separate app'], answer: 1, why: 'The hybrid caps fan-out bursts and keeps reads cheap.' },
+    { topic: 'design', q: 'Feed pagination should use…', options: ['OFFSET', 'a cursor (older than id X)', 'page numbers cached per user', 'random sampling'], answer: 1, why: 'New items at the top shift offsets, causing duplicates and gaps.' },
+    { topic: 'design', q: 'The payment provider call times out. The payment should be…', options: ['FAILED', 'SUCCEEDED', 'left in an unknown state until a webhook or status query resolves it', 'retried with a new key'], answer: 2, why: 'A timeout carries no outcome. A new key could charge twice.' },
+    { topic: 'design', q: 'In a double-entry ledger, a refund is recorded by…', options: ['deleting the charge', 'updating the balance', 'appending entries that reverse the charge', 'editing the original amount'], answer: 2, why: 'Append-only, balanced entries keep history and audits intact.' },
+    { topic: 'design', q: 'Stripe retries a failed webhook delivery in live mode for up to…', options: ['1 hour', '24 hours', '3 days', '30 days'], answer: 2, why: 'Up to three days, with exponential backoff, in no guaranteed order: dedupe by event id.' },
   );
 })(typeof globalThis !== 'undefined' ? globalThis : this);

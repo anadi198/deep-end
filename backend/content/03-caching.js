@@ -190,6 +190,7 @@
 
           - Set a cache timeout in **milliseconds**: a cache that answers slowly is no longer saving time.
           - Put a **circuit breaker** on the cache client so that, once Redis is down, requests skip it instantly.
+          - Know what the client does with commands sent while disconnected. Lettuce, by default, reconnects and replays queued commands once the connection returns (at-least-once), so a non-idempotent command such as «INCR» or «DECR» can run twice.
 
           In the simulator, the breaker removes the waiting but not the overload: the database is still offered five times its capacity.
 
