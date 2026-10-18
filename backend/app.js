@@ -1,7 +1,7 @@
 /* Backend Lab: routing, outline, lessons, quizzes, simulators, interview drills ("Defend it"), progress. */
 (function () {
   'use strict';
-  const BL = window.BL, V = window.LabViz, HL = window.LabHighlight, SIM = window.SimUI;
+  const BL = window.BL, V = window.LabViz, HL = window.LabHighlight, SIM = window.SimUI, GP = window.LabGaps;
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   const esc = HL.esc;
@@ -12,7 +12,7 @@
    * Everything that syncs carries a timestamp so two devices can merge (see mergeState). */
   const KEY = 'backendlab.v1';
   const blank = () => ({
-    v: 1, read: {}, quiz: {}, cards: {}, defend: {}, days: {}, last: null,
+    v: 1, read: {}, quiz: {}, cards: {}, defend: {}, gaps: {}, days: {}, last: null,
     drill: { n: 0, right: 0, by: {} },
     // device-only
     open: {}, focus: false,
@@ -32,6 +32,7 @@
     m.n = mi; MOD[m.id] = m; m.lessons = [];
     for (const it of m.items) {
       const l = { ...it, id: it.lesson, module: m };
+      for (const x of l.gaps || []) x.parsed = GP.parse(x.code);
       LESSON[l.id] = l; m.lessons.push(l); ITEMS.push({ kind: 'lesson', id: l.id, data: l, module: m });
     }
   });
@@ -157,6 +158,7 @@
   function directive(name, rest, ctx) {
     rest = rest.trim();
     if (name === 'quiz') { const q = (ctx.quiz || [])[+rest]; return q ? quizHtml(q, `${ctx.id}:${rest}`) : ''; }
+    if (name === 'gaps') return gapsHtml(`${ctx.id}:${+rest || 0}`);
     if (name === 'defend') { const n = +rest || 0; return (ctx.defend || [])[n] ? defendHtml(`${ctx.id}:${n}`) : ''; }
     if (name === 'sim') { const [nm, ...pre] = rest.split(/\s+/); return `<div class="sim-mount" data-sim="${esc(nm)}" data-preset="${esc(pre.join(' '))}"></div>`; }
     if (name === 'lab') {
@@ -222,6 +224,68 @@
     }
     return true;
   }
+
+  /* ───────────── Spot the gaps: click the lines that are wrong, name the problem, check (gaps.js grades) ─────────────
+   * S.gaps[id] = { flags: { line: kind }, checked, reveal, at }; changing a flag hides the last result. */
+  const gapOf = (gid) => { const [lid, n] = gid.split(':'); return ((LESSON[lid] || {}).gaps || [])[+n]; };
+  function gapsHtml(gid) {
+    const x = gapOf(gid); if (!x) return '';
+    const st = S.gaps[gid] || {}, flags = st.flags || {};
+    const g = st.checked ? GP.grade(x, x.parsed, flags) : null;
+    const byLine = {};
+    if (g) {
+      for (const is of g.issues) for (const n of is.lines) byLine[n] = is.found ? 'is-found' : st.reveal ? 'is-missed' : '';
+      for (const f of g.falseAlarms) byLine[f.n] = 'is-false';
+    }
+    const issueOf = (id) => x.issues.find((i) => i.id === id);
+    const kind = (k) => (GP.KINDS[k] ? GP.KINDS[k].label : k);
+    const lines = x.parsed.lines.map((l) => `<div class="gp-line ${flags[l.n] ? 'flagged' : ''} ${byLine[l.n] || ''}" data-n="${l.n}" tabindex="0" role="button" aria-label="Line ${l.n}${flags[l.n] ? ', flagged: ' + esc(kind(flags[l.n])) : ''}"><span class="ln">${l.n}</span><code>${HL.code(l.text, x.lang) || ' '}</code>${flags[l.n] ? `<span class="gp-chip">${esc(kind(flags[l.n]))}</span>` : ''}</div>`).join('');
+    const nFlags = Object.keys(flags).length;
+    let res = '';
+    if (g) {
+      const shown = g.issues.filter((i) => i.found || st.reveal);
+      res = `<div class="gp-res">
+        <p class="gp-score ${g.done ? 'good' : ''}"><b>${g.found} of ${g.total}</b> gaps found${g.falseAlarms.length ? ` · ${g.falseAlarms.length} line${g.falseAlarms.length === 1 ? '' : 's'} flagged that ${g.falseAlarms.length === 1 ? 'is' : 'are'} fine` : ''}.${!g.done && !st.reveal ? ' Keep looking, or show the rest.' : ''}</p>
+        ${shown.map((i) => { const is = issueOf(i.id); return `<div class="gp-item ${i.found ? 'found' : 'missed'}"><b>${i.found ? '✓' : '✗'} ${inline(is.title)}</b> <span class="small">line ${i.lines.join(', ')} · ${esc(kind(is.kind))}${i.found && !i.kindOk ? ' (you said: ' + esc(kind(flags[i.lines.find((n) => flags[n])])) + ')' : ''}</span>${md(is.why)}<p class="gp-fix"><b>Fix:</b> ${inline(is.fix)}</p></div>`; }).join('')}
+        ${g.falseAlarms.map((f) => { const d = f.decoy && (x.decoys || []).find((y) => y.id === f.decoy); return `<div class="gp-item fine"><b>Line ${f.n} is fine</b>${d ? md(d.why) : '<p>Nothing wrong on this line.</p>'}</div>`; }).join('')}
+      </div>`;
+    }
+    return `<section class="gaps" data-gid="${esc(gid)}">
+      <div class="gp-head"><span class="tag">Spot the gaps</span><b>${inline(x.title)}</b></div>
+      <div class="gp-intro">${md(x.intro)}<p class="small">There ${x.issues.length === 1 ? 'is 1 gap' : `are ${x.issues.length} gaps`}. Tap a line that is wrong and name what goes wrong. Some lines only look suspicious.</p></div>
+      <div class="gp-code lang-${esc(x.lang)}">${lines}</div>
+      <div class="gp-bar"><span class="small">${nFlags ? `${nFlags} line${nFlags === 1 ? '' : 's'} flagged` : 'Nothing flagged yet'}</span>
+        ${nFlags ? '<button class="btn quiet" data-gp="clear">Clear</button>' : ''}
+        ${g && !g.done && !st.reveal ? '<button class="btn" data-gp="reveal">Show the rest</button>' : ''}
+        <button class="btn primary" data-gp="check" ${nFlags ? '' : 'disabled'}>Check</button></div>
+      ${res}
+    </section>`;
+  }
+  function redrawGaps(box) {
+    const tmp = document.createElement('div'); tmp.innerHTML = gapsHtml(box.dataset.gid);
+    const fresh = tmp.firstElementChild; box.replaceWith(fresh); return fresh;
+  }
+  function clickGaps(e) {
+    const box = e.target.closest('.gaps'); if (!box) return false;
+    const gid = box.dataset.gid;
+    const st = S.gaps[gid] || (S.gaps[gid] = { flags: {} });
+    const done = () => { st.at = Date.now(); markDay(); save(); redrawGaps(box); };
+    const b = e.target.closest('[data-gp]');
+    if (b) {
+      if (b.dataset.gp === 'check') st.checked = true;
+      if (b.dataset.gp === 'reveal') { st.checked = true; st.reveal = true; }
+      if (b.dataset.gp === 'clear') { st.flags = {}; st.checked = false; st.reveal = false; }
+      done();
+      return true;
+    }
+    const line = e.target.closest('.gp-line'); if (!line) return true;
+    const n = line.dataset.n;
+    popover(line, Object.entries(GP.KINDS).map(([k, v]) => `<button class="item" data-m="${k}"><b>${esc(v.label)}</b><span>${esc(v.hint)}</span></button>`).join('')
+      + (st.flags[n] ? '<hr><button class="item" data-m="none"><b>Not a gap</b><span>Remove the flag from this line</span></button>' : ''),
+    (k) => { if (k === 'none') delete st.flags[n]; else st.flags[n] = k; st.checked = false; st.reveal = false; done(); });
+    return true;
+  }
+  document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('gp-line')) { e.preventDefault(); e.target.click(); } });
 
   /* ───────────── Elements ───────────── */
   const el = { app: $('#app'), nav: $('#nav'), reader: $('#reader'), pane: $('#readerPane'), progress: $('#progressChip'), todayChip: $('#todayChip'), focusBtn: $('#focusBtn') };
@@ -412,6 +476,7 @@
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#reader')) return;
     if (clickDefend(e)) return;
+    if (clickGaps(e)) return;
     const cb = e.target.closest('[data-cb="copy"]');
     if (cb) { navigator.clipboard.writeText($('pre', cb.closest('.codeblock')).textContent).then(() => toast('Copied')); return; }
     const q = e.target.closest('.quiz input');
@@ -445,7 +510,7 @@
   }
   function renderLesson(l) {
     const m = l.module;
-    const ctx = { id: l.id, quiz: l.quiz, defend: l.defend };
+    const ctx = { id: l.id, quiz: l.quiz, defend: l.defend, gaps: l.gaps };
     const used = new Set((String(l.body).match(/^\s*@defend\s+(\d+)/gm) || []).map((s) => +s.replace(/\D/g, '')));
     const rest = (l.defend || []).map((_, n) => n).filter((n) => !used.has(n));
     el.reader.innerHTML = `
@@ -489,7 +554,7 @@
     if (!remote || remote.v !== 1) return local;
     const out = { ...blank(), ...local };
     const byAt = (k) => { const a = local[k] || {}, b = remote[k] || {}; const o = { ...a }; for (const id of Object.keys(b)) o[id] = a[id] === undefined ? b[id] : newer(a[id], b[id]); out[k] = o; };
-    ['cards', 'quiz', 'defend'].forEach(byAt);
+    ['cards', 'quiz', 'defend', 'gaps'].forEach(byAt);
     const maxNum = (k) => { const a = local[k] || {}, b = remote[k] || {}; const o = { ...a }; for (const id of Object.keys(b)) o[id] = Math.max(a[id] || 0, b[id] || 0); out[k] = o; };
     ['read', 'days'].forEach(maxNum);
     out.last = newer(local.last, remote.last);

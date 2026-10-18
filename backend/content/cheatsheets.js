@@ -180,5 +180,54 @@
         - "We fall back to the database." (Was it sized for that?)
       `,
     },
+    {
+      id: 'kafka-knobs', title: 'Kafka settings that matter', kind: 'Reference',
+      blurb: 'The producer, broker and consumer settings behind durability and speed, with Kafka 4.3 defaults.',
+      lede: 'The default, what it controls, and when to change it. Checked against the Apache Kafka 4.3 docs.',
+      body: R`
+        ## Durability
+
+        | Setting | Default | Set it to |
+        |---|---|---|
+        | «acks» (producer) | all | leave it |
+        | «enable.idempotence» (producer) | true | leave it: no duplicates or reordering on retry |
+        | replication factor | 1 («default.replication.factor») | 3 |
+        | «min.insync.replicas» | 1 | 2 with replication factor 3 |
+        | «unclean.leader.election.enable» | false | leave it for data you cannot lose |
+        | «broker.rack» | unset | the rack or zone, so replicas spread |
+        | «replica.lag.time.max.ms» | 30 s | leave it: longer keeps slow followers in the ISR |
+
+        ## Producer speed
+
+        | Setting | Default | Notes |
+        |---|---|---|
+        | «linger.ms» | 5 (0 before 4.0) | a few ms fills batches |
+        | «batch.size» | 16 KB | per partition; raise for busy partitions |
+        | «compression.type» | none | lz4 or zstd for text payloads |
+        | «buffer.memory» | 32 MB | when full, send() blocks |
+        | «max.block.ms» | 60 s | how long send() blocks before throwing |
+        | «max.in.flight.requests.per.connection» | 5 | ordering holds with idempotence up to 5 |
+        | «delivery.timeout.ms» | 2 min | a send fails after this |
+        | «max.request.size» | 1 MB | larger records fail |
+
+        ## Consumer
+
+        | Setting | Default | Notes |
+        |---|---|---|
+        | «max.poll.records» | 500 | per poll |
+        | «max.poll.interval.ms» | 5 min | slower than this between polls, and you are out of the group |
+        | «fetch.min.bytes» / «fetch.max.wait.ms» | 1 / 500 ms | raise min bytes for fewer, bigger fetches |
+        | «enable.auto.commit» | true, every 5 s | off when processing is asynchronous |
+        | «isolation.level» | read_uncommitted | read_committed for transactional producers |
+        | «auto.offset.reset» | latest | earliest for a new group that must see everything |
+        | «group.protocol» | classic | consumer for KIP-848 rebalancing |
+
+        ## Metrics to watch
+
+        - Producer: «batch-size-avg», «records-per-request-avg», «record-queue-time-avg», «bufferpool-wait-ratio», «record-error-rate».
+        - Broker: «UnderReplicatedPartitions» and «UnderMinIsrPartitionCount» (should be 0), «RequestHandlerAvgIdlePercent», request time split into queue, local, remote and send.
+        - Consumer: «records-lag-max», and lag converted to time behind.
+      `,
+    },
   );
 })(typeof globalThis !== 'undefined' ? globalThis : this);

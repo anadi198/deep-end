@@ -26,3 +26,12 @@ test('code: picks the highlighter by language and escapes anything else', () => 
   assert.equal(HL.code('<b>', 'text'), '&lt;b&gt;');
   assert.match(HL.code('SELECT 1', 'sql'), /tok-k/);
 });
+
+test('props: comments, keys and values of a .properties file are marked', () => {
+  const h = HL.props('# producer\nacks=all\nlinger.ms = 20\nbootstrap.servers=b1:9092');
+  assert.match(h, /<span class="tok-c"># producer<\/span>/);
+  assert.match(h, /<span class="tok-t">acks<\/span>=<span class="tok-s">all<\/span>/);
+  assert.match(h, /<span class="tok-t">linger.ms<\/span> = <span class="tok-n">20<\/span>/);
+  assert.match(h, /<span class="tok-s">b1:9092<\/span>/);
+  assert.match(HL.code('a=1', 'properties'), /tok-t/);
+});

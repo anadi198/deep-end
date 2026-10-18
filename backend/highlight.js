@@ -1,4 +1,4 @@
-/* Backend Lab highlighting: Java and SQL. Shared by the page and tests. */
+/* Backend Lab highlighting: Java, SQL and .properties. Shared by the page and tests. */
 (function (root) {
   'use strict';
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -37,9 +37,19 @@
     return out;
   }
 
-  const code = (src, lang) => (lang === 'java' ? java(src) : lang === 'sql' ? sql(src) : esc(src));
+  // .properties: "# comment", "key=value" or "key = value"; numbers and durations get the number colour
+  function props(src) {
+    return String(src).split('\n').map((line) => {
+      if (/^\s*[#!]/.test(line)) return span('tok-c', line);
+      const m = /^(\s*)([^=:\s]+)(\s*[=:]\s*)(.*)$/.exec(line);
+      if (!m) return esc(line);
+      return esc(m[1]) + span('tok-t', m[2]) + esc(m[3]) + (m[4] ? span(/^-?\d[\d_.]*\s*(ms|s|m|h|d|kb|mb|gb)?$/i.test(m[4]) ? 'tok-n' : 'tok-s', m[4]) : '');
+    }).join('\n');
+  }
 
-  const api = { java, sql, code, esc };
+  const code = (src, lang) => (lang === 'java' ? java(src) : lang === 'sql' ? sql(src) : lang === 'properties' ? props(src) : esc(src));
+
+  const api = { java, sql, props, code, esc };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LabHighlight = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -102,3 +102,27 @@ test('content: no em dashes anywhere in the lab text', () => {
     assert.ok(!readFileSync(join(lab, s), 'utf8').includes('—'), `${s} has an em dash`);
   }
 });
+
+const G = require(join(lab, 'gaps.js'));
+test('content: Spot-the-gaps entries are well formed, and every @gaps points at one', () => {
+  for (const l of lessons) {
+    (l.gaps || []).forEach((x, i) => {
+      const where = `${l.lesson} gaps ${i}`;
+      assert.ok(x.title && x.intro && x.code && ['java', 'properties', 'text', 'proto'].includes(x.lang), `${where}: needs title, intro, code and a known lang`);
+      const p = G.parse(x.code);
+      assert.ok(x.issues.length >= 2, `${where}: needs 2+ issues`);
+      for (const is of x.issues) {
+        assert.ok(G.KINDS[is.kind], `${where}: ${is.id} has unknown kind ${is.kind}`);
+        assert.ok(is.title && is.why && is.fix, `${where}: ${is.id} needs title, why and fix`);
+        assert.ok((p.marks[is.id] || []).length, `${where}: ${is.id} is not marked on any line`);
+      }
+      for (const d of x.decoys || []) assert.ok(d.why && (p.marks[d.id] || []).length, `${where}: decoy ${d.id} needs why and a marked line`);
+      const known = new Set([...x.issues, ...(x.decoys || [])].map((y) => y.id));
+      for (const id of Object.keys(p.marks)) assert.ok(known.has(id), `${where}: marker ${id} has no issue or decoy`);
+    });
+    const used = directives(l.body, 'gaps').map(Number);
+    for (const n of used) assert.ok((l.gaps || [])[n], `${l.lesson}: @gaps ${n} has no entry`);
+    (l.gaps || []).forEach((_, n) => assert.ok(used.includes(n), `${l.lesson}: gaps ${n} is never placed with @gaps`));
+  }
+  assert.ok(lessons.some((l) => (l.gaps || []).length), 'at least one lesson has a Spot-the-gaps exercise');
+});
