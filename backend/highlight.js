@@ -47,9 +47,24 @@
     }).join('\n');
   }
 
-  const code = (src, lang) => (lang === 'java' ? java(src) : lang === 'sql' ? sql(src) : lang === 'properties' ? props(src) : esc(src));
+  const PROTO_KW = new Set('syntax package import option message enum service rpc returns stream reserved repeated optional oneof map to max'.split(' '));
+  const PROTO_TYPE = new Set('double float int32 int64 uint32 uint64 sint32 sint64 fixed32 fixed64 sfixed32 sfixed64 bool string bytes'.split(' '));
+  function proto(src) {
+    let out = '', m;
+    const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:[^"\\\n]|\\.)*")|(\b\d+\b)|([A-Za-z_][\w.]*)|([\s\S])/g;
+    while ((m = re.exec(src))) {
+      if (m[1]) out += span('tok-c', m[1]);
+      else if (m[2]) out += span('tok-s', m[2]);
+      else if (m[3]) out += span('tok-n', m[3]);
+      else if (m[4]) out += PROTO_KW.has(m[4]) ? span('tok-k', m[4]) : PROTO_TYPE.has(m[4]) ? span('tok-t', m[4]) : esc(m[4]);
+      else out += esc(m[5]);
+    }
+    return out;
+  }
 
-  const api = { java, sql, props, code, esc };
+  const code = (src, lang) => (lang === 'java' ? java(src) : lang === 'sql' ? sql(src) : lang === 'properties' ? props(src) : lang === 'proto' ? proto(src) : esc(src));
+
+  const api = { java, sql, props, proto, code, esc };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LabHighlight = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

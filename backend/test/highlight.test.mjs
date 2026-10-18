@@ -35,3 +35,13 @@ test('props: comments, keys and values of a .properties file are marked', () => 
   assert.match(h, /<span class="tok-s">b1:9092<\/span>/);
   assert.match(HL.code('a=1', 'properties'), /tok-t/);
 });
+
+test('proto: keywords, scalar types, numbers and comments of a .proto file are marked', () => {
+  const h = HL.proto('message Payment {\n  reserved 3;\n  int64 amount = 2; // cents\n  repeated string tags = 4;\n}');
+  assert.match(h, /<span class="tok-k">message<\/span>/);
+  assert.match(h, /<span class="tok-k">reserved<\/span>/);
+  assert.match(h, /<span class="tok-t">int64<\/span>/);
+  assert.match(h, /<span class="tok-n">2<\/span>/);
+  assert.match(h, /<span class="tok-c">\/\/ cents<\/span>/);
+  assert.match(HL.code('rpc Pay(A) returns (B);', 'proto'), /<span class="tok-k">rpc<\/span>/);
+});
