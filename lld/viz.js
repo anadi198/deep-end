@@ -110,11 +110,18 @@
   }
 
   /* ───────────── Mermaid ───────────── */
-  const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@12.0.0/dist/mermaid.esm.min.mjs';
+  const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@12.0.0/dist/mermaid.min.js';
   let mermaidP = null, mermaidTheme = null, seqId = 0;
   const isDark = () => (document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
   function loadMermaid() {
-    if (!mermaidP) mermaidP = import(MERMAID_URL).then((m) => m.default);
+    // The single-file build, not the ESM one: that one loads ~100 chunks on demand, which an offline copy cannot list.
+    if (!mermaidP) mermaidP = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = MERMAID_URL;
+      s.onload = () => (window.mermaid ? res(window.mermaid) : rej(new Error('Mermaid did not load')));
+      s.onerror = () => { mermaidP = null; rej(new Error(navigator.onLine === false ? 'offline' : 'could not load Mermaid')); };
+      document.head.appendChild(s);
+    });
     return mermaidP;
   }
   async function renderMermaid(el) {
