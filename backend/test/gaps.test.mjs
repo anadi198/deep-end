@@ -48,7 +48,7 @@ test('gaps: flagging a line with no issue is a false alarm, and names the decoy 
 });
 
 test('gaps: the kinds are a fixed, labelled set', () => {
-  for (const k of ['loss', 'dupe', 'order', 'slow', 'stall', 'ops']) assert.ok(G.KINDS[k] && G.KINDS[k].label, k);
+  for (const k of ['loss', 'dupe', 'order', 'wrong', 'slow', 'stall', 'ops']) assert.ok(G.KINDS[k] && G.KINDS[k].label, k);
 });
 
 test('gaps: parse removes the common indentation of a template literal, keeping relative indents', () => {

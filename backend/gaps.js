@@ -10,6 +10,7 @@
     loss: { label: 'Loses data', hint: 'a write that was acknowledged, or a message, can disappear' },
     dupe: { label: 'Duplicates', hint: 'the same message or effect can happen twice' },
     order: { label: 'Breaks ordering', hint: 'things for one key can be applied out of order' },
+    wrong: { label: 'Leaves systems disagreeing', hint: 'one side records something the other never did, or acts at the wrong time' },
     slow: { label: 'Costs throughput or latency', hint: 'works, but far slower or heavier than it needs to be' },
     stall: { label: 'Can stall or hang', hint: 'something can block, wait forever, or get stuck' },
     ops: { label: 'Hides failures or hurts operations', hint: 'failures go unseen, or it is hard to run and debug' },
