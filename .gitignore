@@ -1,5 +1,7 @@
 # Firebase web config: written by the deploy workflow from the LAB_FIREBASE secret, never committed
 sync-config.js
+# Written by the deploy (node tools/offline-manifest.mjs); serve.mjs builds it per request
+offline-manifest.json
 .build/
 scratch/
 node_modules/

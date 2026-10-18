@@ -11,6 +11,9 @@
 <meta property="og:url" content="https://anadi198.github.io/deep-end/">
 <meta name="theme-color" content="#1B2430">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231B2430'/%3E%3Cpath d='M14 18h12v10h12v10h12' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M14 48h36' stroke='%236FB3E0' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Deep End">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
@@ -76,6 +79,18 @@ header.top { display: flex; align-items: center; gap: 12px; padding: 18px 0 8px;
 .lab .stat.on { color: var(--ink-2); }
 .lab .stat.on i { background: var(--good); }
 
+.offline { margin-top: 34px; }
+.offline .card { display: flex; align-items: center; gap: 18px; background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow); }
+.offline .txt { flex: 1; min-width: 0; }
+.offline b { display: block; font: 700 19px/1.2 Archivo, system-ui, sans-serif; font-stretch: 108%; margin-bottom: 4px; }
+.offline .msg { color: var(--ink-2); font-size: 15px; }
+.offline .msg.err { color: var(--rust); }
+.offline .bar { height: 6px; margin-top: 10px; background: var(--panel-2); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+.offline .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s ease; }
+.offline .go { border: 0; cursor: pointer; }
+.offline .go:disabled { opacity: .6; cursor: default; filter: none; }
+.offline .go.quiet { background: transparent; color: var(--ink-2); border: 1px solid var(--rule); }
+.offline .tip { margin: 10px 2px 0; color: var(--ink-3); font-size: 14px; }
 footer { margin: 44px 0 36px; color: var(--ink-3); font-size: 14px; border-top: 1px solid var(--rule); padding-top: 16px; display: flex; flex-wrap: wrap; gap: 6px 18px; }
 footer a { color: var(--ink-2); }
 @media (max-width: 560px) {
@@ -83,6 +98,7 @@ footer a { color: var(--ink-2); }
   .hero p { font-size: 17px; }
   .resume { flex-direction: column; align-items: stretch; gap: 12px; }
   .go { justify-content: center; }
+  .offline .card { flex-direction: column; align-items: stretch; gap: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .lab { transition: none; } .lab:hover { transform: none; } }
 </style>
@@ -108,12 +124,27 @@ footer a { color: var(--ink-2); }
   <p class="eyebrow">The labs</p>
   <div class="grid" id="labs"></div>
 
+  <section class="offline" id="offline" hidden>
+    <p class="eyebrow">Offline</p>
+    <div class="card">
+      <div class="txt">
+        <b>Take it offline</b>
+        <div class="msg" id="offMsg"></div>
+        <div class="bar" id="offBar" hidden><i></i></div>
+      </div>
+      <button class="go" id="offBtn" type="button">Save for offline</button>
+    </div>
+    <p class="tip" id="offTip" hidden>On a phone, add Deep End to your home screen first and save from there; it then opens like an app. iPhone: Share, then Add to Home Screen. Android: the ⋮ menu, then Add to Home screen. On iPhone the home screen app keeps its own copy and its own progress, so turn on cloud sync there too.</p>
+  </section>
+
   <footer>
     <span>Progress is saved in this browser. Turn on cloud sync inside any lab to carry it to your other devices.</span>
     <a href="https://github.com/anadi198/deep-end" target="_blank" rel="noopener">Source on GitHub</a>
   </footer>
 </div>
 
+<script src="shared/offline-plan.js"></script>
+<script src="shared/offline.js"></script>
 <script>
 (function () {
   'use strict';
@@ -197,6 +228,54 @@ footer a { color: var(--ink-2); }
         <div class="txt"><b>${esc(lab.name)}</b><span>Last studied ${ago(p.at)} · ${p.n} ${p.unit}</span></div>
         <a class="go" href="${lab.id}/${safeHash(p.href)}">Continue →</a>
       </div>`;
+  }
+
+  // Save for offline (shared/offline.js does the work)
+  const O = window.DeepOffline;
+  if (O) {
+    const box = document.getElementById('offline'), msg = document.getElementById('offMsg'), btn = document.getElementById('offBtn');
+    const bar = document.getElementById('offBar'), fill = bar.firstElementChild;
+    const size = (m) => window.OfflinePlan.megabytes(m.bytes + m.externalBytes);
+    const when = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    const show = (text, err) => { msg.textContent = text; msg.className = 'msg' + (err ? ' err' : ''); };
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    document.getElementById('offTip').hidden = standalone;
+
+    const idle = async () => {
+      const s = await O.status().catch(() => null);
+      bar.hidden = true; btn.disabled = false;
+      if (s) {
+        show(`Saved on this device on ${when(s.savedAt)}, about ${size(s.manifest)}. Every lab opens with no internet except running Rust and C++ code, which needs the compiler servers. It updates itself when you visit online.`);
+        btn.textContent = 'Remove offline copy'; btn.className = 'go quiet'; btn.onclick = remove;
+        return;
+      }
+      btn.textContent = 'Save for offline'; btn.className = 'go'; btn.onclick = save;
+      try {
+        const m = await O.manifest();
+        show(`Keep every lab on this device for flights and bad connections: about ${size(m)}. Everything works offline except running Rust and C++ code, which needs the compiler servers.`);
+      } catch {
+        show('Connect to the internet once to save the labs on this device.');
+        btn.disabled = true;
+      }
+    };
+    async function save() {
+      btn.disabled = true; btn.textContent = 'Saving…'; bar.hidden = false; fill.style.width = '0';
+      show('Downloading…');
+      try {
+        await O.save((done, total) => { fill.style.width = (total ? (100 * done) / total : 100) + '%'; show(`Downloading… ${done} of ${total} files`); });
+        await idle();
+      } catch (e) {
+        await idle();
+        show('Saving failed: ' + (e instanceof TypeError ? 'the connection dropped. Try again.' : (e && e.message) || String(e)), true);
+      }
+    }
+    async function remove() {
+      btn.disabled = true;
+      await O.remove();
+      await idle();
+    }
+    box.hidden = false;
+    idle();
   }
 
   const root = document.documentElement;

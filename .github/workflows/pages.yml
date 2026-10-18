@@ -47,6 +47,10 @@ jobs:
             console.log("shared/sync-config.js written for project " + c.projectId);
           '
 
+      # After the sync config, so its hash is in the list. "Save for offline" downloads what this lists.
+      - name: List the files for the offline copy
+        run: node tools/offline-manifest.mjs
+
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
